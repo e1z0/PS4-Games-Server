@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 )
 
 func main() {
@@ -17,7 +16,7 @@ func main() {
 			panic(e)
 		}
 		if d.IsDir() {
-			if strings.HasPrefix(d.Name(), ".") && p != "." || p == "dist" || p == "bin" || p == "runtime" || p == "data" {
+			if d.Name() == ".git" || p == "dist" || p == "bin" || p == "runtime" || p == "data" {
 				return filepath.SkipDir
 			}
 			return nil

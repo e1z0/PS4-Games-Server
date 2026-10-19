@@ -1,4 +1,4 @@
-# Remaining work
+# Remaining validation
 
-- Finish metadata enrichment, HTTP, browser UI and delivery.
-- Record actual native/container validation; console validation requires a real PS4.
+- Delivery automation and final native/container smoke checks.
+- Live console validation requires a real PS4; no claim of live PS4 testing.

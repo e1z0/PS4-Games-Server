@@ -438,3 +438,19 @@ func writeCatalogs(c config.Config, next, old []Cached, meta map[string]map[stri
 
 // MarshalSnapshot lets callers retain an independent immutable view for diagnostics.
 func (e *Engine) MarshalSnapshot() []byte { b, _ := json.Marshal(e.Snapshot()); return b }
+
+// RestoreMetadata makes cached rich details available even with startup scans disabled.
+func (e *Engine) RestoreMetadata(ctx context.Context, c config.Config) {
+	if e.Enricher == nil {
+		return
+	}
+	c.IGDB.Enabled = false
+	m, _, err := e.Enricher.Enrich(ctx, c, e.Snapshot())
+	if err != nil {
+		e.Log("cached metadata unavailable")
+		return
+	}
+	e.mu.Lock()
+	e.metadata = m
+	e.mu.Unlock()
+}

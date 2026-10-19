@@ -120,6 +120,26 @@ func Load(path string, seed bool) (Config, error) {
 					return Config{}, fmt.Errorf("invalid %s", name)
 				}
 			}
+			// Validate supplied environment values even when an existing JSON key wins.
+			probe := Defaults()
+			partial := map[string]any{}
+			dest := partial
+			for _, part := range parts[:len(parts)-1] {
+				next := map[string]any{}
+				dest[part] = next
+				dest = next
+			}
+			dest[last] = v
+			encoded, _ := json.Marshal(partial)
+			if err := json.Unmarshal(encoded, &probe); err != nil {
+				return Config{}, fmt.Errorf("invalid %s", name)
+			}
+			if err := probe.Validate(); err != nil {
+				return Config{}, fmt.Errorf("invalid %s: %w", name, err)
+			}
+			if key == "admin.password" && value != "" && (len(value) < 12 || len(value) > 1024) {
+				return Config{}, fmt.Errorf("invalid %s: password must contain 12–1024 bytes", name)
+			}
 			if _, exists := m[last]; !exists {
 				if key == "admin.password" && m["password_hash"] != nil {
 					continue
