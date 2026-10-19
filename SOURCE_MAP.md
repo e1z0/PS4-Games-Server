@@ -12,5 +12,10 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `go.mod`
 - `internal/config/config.go`
 - `internal/config/config_test.go`
+- `internal/ps4/pkg.go`
+- `internal/ps4/pkg_test.go`
+- `internal/scanner/scanner.go`
+- `internal/scanner/scanner_test.go`
 - `internal/storage/storage.go`
+- `internal/testpkg/fixture.go`
 - `tools/source-map.go`
