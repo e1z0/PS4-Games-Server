@@ -45,3 +45,7 @@ Test servers, the isolated Compose project/volumes and the temporary Buildx buil
 ## Direct startup follow-up — 2026-10-20
 
 `make check` passed after removing the serve subcommand, including the real subprocess server integration, race tests and source-map check. Rebuilt `bin/ps4-server` and launched it with no arguments in an isolated directory; its HTTP health endpoint returned 200. Native/container startup instructions now use the default invocation. The Docker startup command was updated; no new container deployment was run for this change.
+
+## Windows CI cleanup fix — 2026-10-20
+
+The reported Windows go test failures were temporary-directory cleanup failures in three tests that did not close their App instances. Added checked application cleanup before TempDir cleanup and checked previously ignored constructor errors. `make check` passed on Linux, including the full race suite; the three affected tests passed ten consecutive runs. The Windows amd64 server test executable cross-compiled successfully. Windows execution of this fix remains for the hosted CI rerun.

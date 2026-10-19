@@ -244,6 +244,11 @@ func TestSetupListenerChangesRequireRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := a.Close(); err != nil {
+			t.Error("close application:", err)
+		}
+	})
 	h := a.Handler(false)
 	cookie, token := authInfo(t, request(t, h, "POST", "/api/v1/setup/open", map[string]string{"token": a.SetupToken()}, nil, ""))
 	c.Listen = ":8081"
@@ -264,7 +269,15 @@ func TestCanonicalFeedLinksForReservedCategories(t *testing.T) {
 	c.DataDir = t.TempDir()
 	c.PublicURL = "http://nas:8080"
 	c.Mappings = []config.Mapping{{ID: "main", Path: t.TempDir(), Category: "admin", Enabled: true}}
-	a, _ := New(context.Background(), filepath.Join(t.TempDir(), "c.json"), c)
+	a, err := New(context.Background(), filepath.Join(t.TempDir(), "c.json"), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := a.Close(); err != nil {
+			t.Error("close application:", err)
+		}
+	})
 	w := request(t, a.Handler(false), "GET", "/api/v1/feeds", nil, nil, "")
 	if !strings.Contains(w.Body.String(), "http://nas:8080/feeds/admin") {
 		t.Fatal(w.Body.String())
@@ -290,7 +303,15 @@ func TestContainedAbsoluteSymlinkDownload(t *testing.T) {
 func TestDirectoryBrowserStartsAtNativePath(t *testing.T) {
 	c := config.Defaults()
 	c.DataDir = t.TempDir()
-	a, _ := New(context.Background(), filepath.Join(t.TempDir(), "c.json"), c)
+	a, err := New(context.Background(), filepath.Join(t.TempDir(), "c.json"), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := a.Close(); err != nil {
+			t.Error("close application:", err)
+		}
+	})
 	h := a.Handler(false)
 	cookie, _ := authInfo(t, request(t, h, "POST", "/api/v1/setup/open", map[string]string{"token": a.SetupToken()}, nil, ""))
 	w := request(t, h, "GET", "/api/v1/directories", nil, cookie, "")

@@ -20,3 +20,9 @@ The completion audit is finished. All local acceptance gates passed with 49 nati
 Removed the serve subcommand. Running the binary directly starts the server, with optional -config. Docker, make run, setup instructions and the real subprocess integration test use this invocation. Administrative utility commands remain available.
 
 Verification: make check passed; the rebuilt executable started with no arguments and returned HTTP 200 from /health in an isolated smoke test.
+
+## Windows test cleanup — 2026-10-20
+
+The three server tests reported by Windows CI omitted App.Close, leaking their data writer locks into temporary-directory cleanup. They now check construction errors and register cleanup that closes the application and reports close errors. All other successful App.New calls in the server tests were reviewed for cleanup.
+
+Verification: make check passed, the affected tests passed ten consecutive runs, and the Windows amd64 server test binary cross-compiled. A native Windows CI rerun is still required to confirm the reported cleanup errors are resolved on that runner.

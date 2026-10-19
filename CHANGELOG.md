@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Close application instances in three server tests before temporary-directory cleanup, fixing Windows CI writer-lock removal failures.
+
 - Start the server by running the binary directly; remove the serve subcommand and update native/container startup instructions.
 
 - Native Go rewrite with embedded assets and JSON configuration; environment values seed missing fields.
