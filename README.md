@@ -1,5 +1,7 @@
 # PS4 Games Server
 
+[![Native checks](https://github.com/e1z0/PS4-Games-Server/actions/workflows/ci.yml/badge.svg)](https://github.com/e1z0/PS4-Games-Server/actions/workflows/ci.yml)
+
 A native Go PS4 package server with an embedded browser library, setup wizard and authenticated administration. One executable; no runtime Go installation, Node.js, Python, Orbis tools or database. GPL-2.0-only.
 
 This is an independent rewrite of FPKGi-node-server. There is no configuration importer.
