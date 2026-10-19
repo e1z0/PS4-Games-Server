@@ -6,7 +6,7 @@ This audit follows the supplied native-Go rewrite plan. Completion means the imp
 | --- | --- |
 | Baseline 88a969c, independent repository, no importer | README and PROGRESS record the exact baseline SHA and its 15 passing Linux tests; separate Git root/history here; original sibling status remains unchanged. |
 | GPL-2.0-only, SPDX source, third-party notices | LICENSE, source headers, THIRD_PARTY_NOTICES.md; generated PNG has a licensed Go source generator. |
-| One native executable, CGO=0, stdlib HTTP, embedded assets, no Node/Python/Orbis/database/frontend build | go.mod has no external modules; cmd/ps4-server is the application entrypoint; server assets use go:embed; Make build/release and Docker build force CGO_ENABLED=0. |
+| One native executable, CGO=0, stdlib HTTP, embedded assets, no Node/Python/Orbis/database/frontend build | go.mod pins x/sys for native Windows service integration; cmd/ps4-server is the application entrypoint; server assets use go:embed; Make build/release and Docker build force CGO_ENABLED=0. |
 | Config/parser/scanner/catalogs/metadata/HTTP/UI responsibilities | internal packages and docs/architecture.md; SOURCE_MAP.md covers every source/document/config file. |
 | Native bounded CNT/SFO IDs, names, versions, regions, minimum firmware and types | internal/ps4; TestMetadata, TestBoundsAndEncryption, TestFirmwareAndTypes, TestSFOTruncationAndLargeEntry and FuzzParse seed corpus. |
 | Homebrew without CUSA; exclude other console formats | Parser accepts non-CUSA/absent IDs and requires PS4 CNT magic; synthetic metadata and wrong-magic tests. |
@@ -38,7 +38,7 @@ This audit follows the supplied native-Go rewrite plan. Completion means the imp
 | Configurable version tags, nulldevil image, amd64/arm64, externally supplied auth, explicit stable latest | Make upload creates/reuses its named Buildx builder and uses both platforms, IMAGE/TAG/VERSION and externally managed login; STABLE=1 adds latest, normal upload never does. |
 | Six native archives each with executable/example/license/setup | tools/release builds Linux/macOS/Windows amd64/arm64 tar.gz/zip; actual archive contents inspected. |
 | Multi-stage, non-root, persistent config/data, read-only packages, UID/GID and health | Dockerfile/compose.yaml; native amd64 container smoke, inspected arm64 image and two-platform OCI index; no emulation needed for build. |
-| Docker only for containers; Go sufficient for native build/tests, executable sufficient at runtime | Native CGO-free builds and archives; no external Go modules. Go race detector additionally requires its host C compiler, documented in README. |
+| Docker only for containers; Go sufficient for native build/tests, executable sufficient at runtime | Native CGO-free builds and archives; x/sys is compiled into Windows builds with no runtime installation. Go race detector additionally requires its host C compiler, documented in README. |
 | Mock/synthetic tests, formatting/vet/tests/race/source map; native CI and release cross-compilation | make check, 49 native test functions at audit time plus fuzz seed corpus; native OS workflow matrix and six-target release/OCI build job. |
 | Smoke actual executable and Compose including restart/non-root/health/downloads; record limits | docs/validation.md includes commands, outcomes and cleanup. No console, real IGDB account, registry push, hosted CI or successful native Windows/macOS execution is claimed. |
 

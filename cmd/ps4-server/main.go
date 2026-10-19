@@ -27,12 +27,24 @@ import (
 var version = "0.1.0-dev"
 
 func main() {
-	if e := run(os.Args[1:], os.Stdin, os.Stdout); e != nil {
+	if e := entry(); e != nil {
 		fmt.Fprintln(os.Stderr, "Error:", e)
 		os.Exit(1)
 	}
 }
+func entry() error {
+	if handled, err := platformMain(); handled || err != nil {
+		return err
+	}
+	return run(os.Args[1:], os.Stdin, os.Stdout)
+}
 func run(args []string, in io.Reader, out io.Writer) error {
+	return runContext(context.Background(), args, in, out, nil)
+}
+func runContext(parent context.Context, args []string, in io.Reader, out io.Writer, ready func()) error {
+	if len(args) > 0 && args[0] == "service" {
+		return serviceCommand(args[1:], out)
+	}
 	command := ""
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		command = args[0]
@@ -54,7 +66,7 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return nil
 	}
 	if command == "help" {
-		fmt.Fprintln(out, "ps4-server [-config config.json] starts the server.\nps4-server <scan|init|validate|password-reset|health|version|help> [-config config.json]\nscan: -force; health: -url http://127.0.0.1:8080\npassword-reset reads a new password from standard input (12–1024 bytes). See docs/configuration.md.")
+		fmt.Fprintln(out, "ps4-server [-config config.json] starts the server.\nps4-server <scan|init|validate|password-reset|health|version|help> [-config config.json]\nscan: -force; health: -url http://127.0.0.1:8080\nWindows: service install [-config config.json]; service <start|stop|status|uninstall>\npassword-reset reads a new password from standard input (12–1024 bytes). See docs/configuration.md.")
 		return nil
 	}
 	if command == "health" {
@@ -148,7 +160,7 @@ func run(args []string, in io.Reader, out io.Writer) error {
 			return e
 		}
 		engine.Enricher = metadata.New()
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		e = engine.Run(ctx, c, *force)
 		json.NewEncoder(out).Encode(engine.Status())
@@ -157,7 +169,7 @@ func run(args []string, in io.Reader, out io.Writer) error {
 	if e = server.Writable(c.DataDir); e != nil {
 		return errors.New("data directory is not writable")
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	app, e := server.New(ctx, abs, c)
 	if e != nil {
@@ -187,6 +199,9 @@ func run(args []string, in io.Reader, out io.Writer) error {
 			host = "localhost"
 		}
 		fmt.Fprintf(out, "Setup: http://%s/setup#token=%s\nReplace localhost with this server's address when connecting remotely.\n", net.JoinHostPort(host, port), token)
+	}
+	if ready != nil {
+		ready()
 	}
 	app.Schedule()
 	errs := make(chan error, len(servers))

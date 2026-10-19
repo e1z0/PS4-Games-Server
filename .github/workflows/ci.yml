@@ -16,6 +16,10 @@ jobs:
       - run: go test ./...
       - run: go test -race ./...
       - run: go run ./tools/source-map.go -check
+      - name: Windows service install/start/stop/uninstall smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/windows-service-smoke.ps1
   release-builds:
     runs-on: ubuntu-latest
     steps:

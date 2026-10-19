@@ -26,7 +26,7 @@ Baseline: FPKGi-node-server commit 88a969c. Its 15 Linux tests passed before imp
 | Admin settings/mappings/status/logs/scans/overrides/restart notice | Implemented; API tests, responsive UI |
 | Session auth, CSRF, logout, throttling; public PS4 routes | Implemented; security tests |
 | No arbitrary config/cache exposure, traversal/symlink containment | Implemented; route whitelist and os.OpenRoot; HTTP tests |
-| One executable, no external Go dependencies, embedded web | Implemented; CGO-free release targets |
+| One executable, embedded web, Windows SCM service | Implemented; CGO-free release targets; x/sys compiled into Windows EXE |
 | CLI setup/validate/reset/health/version | Implemented; CLI tests and smoke validation |
 | GPLv2, notices, docs and generated source inventory | Included; source-map check |
 | Linux/macOS/Windows amd64/arm64 archives | Release tooling builds six archives; see actual results |

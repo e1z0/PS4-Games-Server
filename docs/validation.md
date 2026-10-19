@@ -49,3 +49,10 @@ Test servers, the isolated Compose project/volumes and the temporary Buildx buil
 ## Windows CI cleanup fix — 2026-10-20
 
 The reported Windows go test failures were temporary-directory cleanup failures in three tests that did not close their App instances. Added checked application cleanup before TempDir cleanup and checked previously ignored constructor errors. `make check` passed on Linux, including the full race suite; the three affected tests passed ten consecutive runs. The Windows amd64 server test executable cross-compiled successfully. Windows execution of this fix remains for the hosted CI rerun.
+
+## Windows guide and native service — 2026-10-20
+
+- `make check` passed on Linux: formatting, vet, all tests, full race suite and source inventory. A new real-listener test cancels the service parent context, checks HTTP health and verifies both writer locks are released after shutdown.
+- Windows amd64 vet and Windows amd64/arm64 test executable cross-compilation passed. Windows-specific handler tests cover readiness, interrogation, stop, shutdown and nonzero startup failure; these are compiled locally and run by Windows CI.
+- All six release archives rebuilt. Both Windows ZIPs contain WINDOWS.md with the exact guide content (six files); other archives retain five files. The Linux Docker image rebuilt successfully with the pinned module/checksum files.
+- Added an elevated Windows CI smoke script: no-argument EXE launch from a different working directory; real Local Service registration from paths containing spaces; two start/health/status/stop cycles; uninstall retaining configuration/data. This script has not been executed locally because this host is Linux and has no native Windows SCM. Its result must be checked on the hosted Windows runner before claiming service runtime validation.

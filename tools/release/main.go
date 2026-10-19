@@ -50,6 +50,9 @@ func release(version string) error {
 			return e
 		}
 		files := map[string]string{binary: filepath.Join(dir, binary), "config.example.json": "config.example.json", "LICENSE": "LICENSE", "SETUP.md": "docs/setup.md", "THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"}
+		if target.os == "windows" {
+			files["WINDOWS.md"] = "WINDOWS.md"
+		}
 		ext := ".tar.gz"
 		if target.os == "windows" {
 			ext = ".zip"
@@ -78,7 +81,7 @@ func release(version string) error {
 }
 func writeZip(w io.Writer, files map[string]string, binary string) error {
 	z := zip.NewWriter(w)
-	for _, name := range []string{binary, "config.example.json", "LICENSE", "SETUP.md", "THIRD_PARTY_NOTICES.md"} {
+	for _, name := range archiveNames(files, binary) {
 		b, e := os.ReadFile(files[name])
 		if e != nil {
 			return e
@@ -102,7 +105,7 @@ func writeZip(w io.Writer, files map[string]string, binary string) error {
 func writeTar(w io.Writer, files map[string]string, binary string) error {
 	gz := gzip.NewWriter(w)
 	tw := tar.NewWriter(gz)
-	for _, name := range []string{binary, "config.example.json", "LICENSE", "SETUP.md", "THIRD_PARTY_NOTICES.md"} {
+	for _, name := range archiveNames(files, binary) {
 		b, e := os.ReadFile(files[name])
 		if e != nil {
 			return e
@@ -122,4 +125,12 @@ func writeTar(w io.Writer, files map[string]string, binary string) error {
 		return e
 	}
 	return gz.Close()
+}
+
+func archiveNames(files map[string]string, binary string) []string {
+	names := []string{binary, "config.example.json", "LICENSE", "SETUP.md", "THIRD_PARTY_NOTICES.md"}
+	if _, ok := files["WINDOWS.md"]; ok {
+		names = append(names, "WINDOWS.md")
+	}
+	return names
 }

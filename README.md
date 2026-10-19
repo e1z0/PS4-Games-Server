@@ -14,7 +14,7 @@ Download and unpack an archive for your operating system and CPU. Run:
 ./ps4-server
 ```
 
-On Windows, run `ps4-server.exe` in a terminal. Open the setup URL printed in the terminal. Replace `localhost` with the server's LAN address if using another computer. The secret setup token appears after `#`; it expires after setup completes or the process restarts.
+On Windows, double-click `ps4-server.exe`. Follow the [Windows walkthrough](WINDOWS.md) for a complete folder example, firewall setup and optional automatic Windows service. Open the setup URL printed in the terminal. Replace `localhost` with the server's LAN address if using another computer. The secret setup token appears after `#`; it expires after setup completes or the process restarts.
 
 The wizard asks for administrator credentials, package folders, writable application storage, a PS4-reachable URL such as `http://192.168.1.20:8080`, and optional IGDB details. Sign in to start the first scan. Open `/library` to browse and copy category feed URLs into FPKGi. Feeds and package downloads do not require login.
 

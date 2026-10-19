@@ -2,6 +2,8 @@
 
 ## Native executable
 
+Windows beginners: see the standalone [Windows EXE and service guide](https://github.com/e1z0/PS4-Games-Server/blob/main/WINDOWS.md), also included as WINDOWS.md in Windows archives.
+
 1. Unpack the archive for your OS and CPU. Use amd64 for most Intel/AMD machines and arm64 for Apple Silicon and most ARM servers. On Windows, open a terminal in the unpacked folder.
 2. Run `./ps4-server` (Windows: `ps4-server.exe`). The application creates `config.json` with restricted permissions where the OS supports them.
 3. Open the printed setup URL. Treat the token as a temporary administrator secret. If browsing remotely, replace `localhost` with the server's address and retain the fragment beginning `#token=`.

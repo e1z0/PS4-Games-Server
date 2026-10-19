@@ -2,6 +2,9 @@
 
 ## 0.1.0 (unreleased)
 
+- Add an EXE-only Windows walkthrough and native Windows service install/start/stop/status/uninstall, limited Local Service account, graceful shutdown and service.log.
+- Keep Windows double-click configuration/data beside the EXE and include WINDOWS.md in Windows archives; add real service lifecycle CI coverage.
+
 - Close application instances in three server tests before temporary-directory cleanup, fixing Windows CI writer-lock removal failures.
 
 - Start the server by running the binary directly; remove the serve subcommand and update native/container startup instructions.

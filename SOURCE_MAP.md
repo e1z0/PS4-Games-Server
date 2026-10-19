@@ -15,8 +15,12 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `README.md`
 - `THIRD_PARTY_NOTICES.md`
 - `TODO.md`
+- `WINDOWS.md`
 - `cmd/ps4-server/main.go`
 - `cmd/ps4-server/main_test.go`
+- `cmd/ps4-server/service_other.go`
+- `cmd/ps4-server/service_windows.go`
+- `cmd/ps4-server/service_windows_test.go`
 - `compose.yaml`
 - `config.example.json`
 - `docs/acceptance.md`
@@ -26,6 +30,7 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `docs/setup.md`
 - `docs/validation.md`
 - `go.mod`
+- `go.sum`
 - `internal/config/config.go`
 - `internal/config/config_test.go`
 - `internal/metadata/map.go`
@@ -53,6 +58,7 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `internal/storage/storage.go`
 - `internal/storage/storage_test.go`
 - `internal/testpkg/fixture.go`
+- `scripts/windows-service-smoke.ps1`
 - `tools/assets/main.go`
 - `tools/release/main.go`
 - `tools/source-map.go`
