@@ -33,12 +33,12 @@ func main() {
 	}
 }
 func run(args []string, in io.Reader, out io.Writer) error {
-	command := "serve"
+	command := ""
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		command = args[0]
 		args = args[1:]
 	}
-	f := flag.NewFlagSet(command, flag.ContinueOnError)
+	f := flag.NewFlagSet("ps4-server", flag.ContinueOnError)
 	f.SetOutput(out)
 	path := f.String("config", "config.json", "configuration JSON path")
 	force := f.Bool("force", false, "force package metadata inspection (scan)")
@@ -54,7 +54,7 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return nil
 	}
 	if command == "help" {
-		fmt.Fprintln(out, "ps4-server [serve|scan|init|validate|password-reset|health|version] [-config config.json]\nscan: -force; health: -url http://127.0.0.1:8080\npassword-reset reads a new password from standard input (12–1024 bytes). See docs/configuration.md.")
+		fmt.Fprintln(out, "ps4-server [-config config.json] starts the server.\nps4-server <scan|init|validate|password-reset|health|version|help> [-config config.json]\nscan: -force; health: -url http://127.0.0.1:8080\npassword-reset reads a new password from standard input (12–1024 bytes). See docs/configuration.md.")
 		return nil
 	}
 	if command == "health" {
@@ -83,7 +83,7 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return nil
 	}
 	switch command {
-	case "serve", "scan", "init", "validate", "password-reset":
+	case "", "scan", "init", "validate", "password-reset":
 	default:
 		return fmt.Errorf("unknown command %q; run ps4-server help", command)
 	}
@@ -109,7 +109,7 @@ func run(args []string, in io.Reader, out io.Writer) error {
 	}
 	switch command {
 	case "init":
-		fmt.Fprintln(out, "Created", abs, "— start serve and open the setup URL.")
+		fmt.Fprintln(out, "Created", abs, "— run ps4-server and open the setup URL.")
 		return nil
 	case "validate":
 		if _, e := os.Stat(*path); e != nil {

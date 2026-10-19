@@ -11,7 +11,7 @@ all: build
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags '-s -w -X main.version=$(VERSION)' -o $(BINARY) ./cmd/ps4-server
 run:
-	go run ./cmd/ps4-server serve -config "$(CONFIG)"
+	go run ./cmd/ps4-server -config "$(CONFIG)"
 test:
 	go test ./...
 check:

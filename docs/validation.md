@@ -41,3 +41,7 @@ Final checks after all audit fixes:
 - All 17 supported application environment seeds were checked against their corresponding JSON-field rows in configuration.md. Normal/stable upload recipes were dry-run reviewed: version tags target both Linux architectures, externally supplied Docker authentication is used, and latest is only added on the explicit stable branch. Nothing was pushed to a registry.
 
 Test servers, the isolated Compose project/volumes and the temporary Buildx builder were removed. The synthetic package was moved out of the local default package directory into an ignored fixture backup. Executables, six native archives, test logs/screenshots and the OCI audit archive remain in ignored output directories. Hosted CI, native Windows/macOS/ARM execution, a live IGDB account and a real console remain unclaimed external follow-ups, rather than omitted local acceptance work.
+
+## Direct startup follow-up — 2026-10-20
+
+`make check` passed after removing the serve subcommand, including the real subprocess server integration, race tests and source-map check. Rebuilt `bin/ps4-server` and launched it with no arguments in an isolated directory; its HTTP health endpoint returned 200. Native/container startup instructions now use the default invocation. The Docker startup command was updated; no new container deployment was run for this change.

@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Start the server by running the binary directly; remove the serve subcommand and update native/container startup instructions.
+
 - Native Go rewrite with embedded assets and JSON configuration; environment values seed missing fields.
 - Added native PS4 parsing, incremental scans, deterministic catalogs, plaintext icon repair and cancellation.
 - Added IGDB caches and rich metadata, local screenshots, offline operation and manual overrides.

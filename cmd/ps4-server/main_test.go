@@ -31,6 +31,9 @@ func TestCLI(t *testing.T) {
 	if e := run([]string{"init", "-config", p}, strings.NewReader(""), &bytes.Buffer{}); e == nil {
 		t.Fatal("init overwrote existing")
 	}
+	if e := run([]string{"serve", "-config", p}, strings.NewReader(""), &bytes.Buffer{}); e == nil || !strings.Contains(e.Error(), "unknown command") {
+		t.Fatal("serve subcommand must be rejected", e)
+	}
 	c, e := config.Load(p, false)
 	if e != nil {
 		t.Fatal(e)
@@ -46,11 +49,11 @@ func TestCLI(t *testing.T) {
 	}
 }
 
-// The helper executes the real serve command, so locks, listeners and embedded
+// The helper executes the default server invocation, so locks, listeners and embedded
 // assets are covered together on every native CI operating system.
 func TestCLIServerProcess(t *testing.T) {
 	if path := os.Getenv("PS4_CLI_TEST_CONFIG"); path != "" {
-		if err := run([]string{"serve", "-config", path}, os.Stdin, os.Stdout); err != nil {
+		if err := run([]string{"-config", path}, os.Stdin, os.Stdout); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

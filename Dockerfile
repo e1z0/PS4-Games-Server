@@ -28,4 +28,4 @@ EXPOSE 8080
 VOLUME ["/config", "/data"]
 HEALTHCHECK --interval=30s --timeout=6s --start-period=10s CMD ["/usr/local/bin/ps4-server", "health", "-config", "/config/config.json"]
 ENTRYPOINT ["/usr/local/bin/ps4-server"]
-CMD ["serve", "-config", "/config/config.json"]
+CMD ["-config", "/config/config.json"]

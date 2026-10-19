@@ -3,7 +3,7 @@
 ## Native executable
 
 1. Unpack the archive for your OS and CPU. Use amd64 for most Intel/AMD machines and arm64 for Apple Silicon and most ARM servers. On Windows, open a terminal in the unpacked folder.
-2. Run `./ps4-server serve` (Windows: `ps4-server.exe serve`). The application creates `config.json` with restricted permissions where the OS supports them.
+2. Run `./ps4-server` (Windows: `ps4-server.exe`). The application creates `config.json` with restricted permissions where the OS supports them.
 3. Open the printed setup URL. Treat the token as a temporary administrator secret. If browsing remotely, replace `localhost` with the server's address and retain the fragment beginning `#token=`.
 4. Choose a username and a password containing at least 12 characters. Passwords are converted into salted PBKDF2-SHA256 hashes before persistence.
 5. Add absolute package folder paths. Every mapping has a stable ID, category and enabled flag. Examples: `/srv/ps4/games`, `C:\Games\PS4`. Several folders may use `games` as their category. IDs and categories permit letters, digits, underscore and hyphen; keep an ID stable to retain incremental cache reuse. Folders are scanned recursively; file symlinks must remain inside their mapping. Directory symlinks inside a mapping are not followed.
