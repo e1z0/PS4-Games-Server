@@ -62,3 +62,34 @@ func TestInvalidSeedStillRejectedWhenPresent(t *testing.T) {
 		t.Fatal("explicit invalid environment value ignored")
 	}
 }
+
+func TestMalformedConfigDoesNotSeedOrPersist(t *testing.T) {
+	for _, input := range []string{`null`, `[]`, `{"admin":null}`, `{"scan":{"startup":null}}`, `{"mappings":[null]}`, `{"unknown_setting":true}`} {
+		t.Run(input, func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "c.json")
+			os.WriteFile(p, []byte(input), 0600)
+			t.Setenv("PS4_ADMIN_USERNAME", "admin")
+			if _, err := Load(p, true); err == nil {
+				t.Fatal("invalid config accepted")
+			}
+			b, _ := os.ReadFile(p)
+			if string(b) != input {
+				t.Fatal("invalid input overwritten")
+			}
+		})
+	}
+}
+func TestOriginsAndDurationBounds(t *testing.T) {
+	for _, origin := range []string{"http://:8080", "http://[0:0:0:0:0:0:0:0]:8080", "http://[::ffff:0.0.0.0]", "http://nas:65536", "http://nas:0", "http://nas?", "http://nas#", "http://nas/%2F", "http://[not-ip]"} {
+		c := Defaults()
+		c.PublicURL = origin
+		if c.Validate() == nil {
+			t.Fatal("invalid origin accepted", origin)
+		}
+	}
+	c := Defaults()
+	c.Scan.IntervalMinutes = int(^uint(0) >> 1)
+	if c.Validate() == nil {
+		t.Fatal("overflow duration accepted")
+	}
+}

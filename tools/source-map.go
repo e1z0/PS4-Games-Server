@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 func main() {
@@ -21,7 +22,7 @@ func main() {
 			}
 			return nil
 		}
-		if p != "SOURCE_MAP.md" && p != "config.json" {
+		if p != "SOURCE_MAP.md" && p != "config.json" && p != "config.json.lock" && !((d.Name() == ".env" || strings.HasPrefix(d.Name(), ".env.")) && d.Name() != ".env.example") {
 			files = append(files, filepath.ToSlash(p))
 		}
 		return nil
@@ -33,7 +34,7 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "-check" {
 		old, _ := os.ReadFile("SOURCE_MAP.md")
-		if string(old) != string(b) {
+		if strings.ReplaceAll(string(old), "\r\n", "\n") != string(b) {
 			fmt.Fprintln(os.Stderr, "SOURCE_MAP.md is stale")
 			os.Exit(1)
 		}

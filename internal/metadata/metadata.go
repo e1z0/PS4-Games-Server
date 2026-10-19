@@ -51,28 +51,60 @@ func New() *Service {
 func Normalize(s string) string {
 	return strings.Join(strings.FieldsFunc(strings.ToLower(s), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }), " ")
 }
-func Similarity(a, b string) float64 {
-	a = Normalize(a)
-	b = Normalize(b)
-	if a == b && a != "" {
-		return 1
-	}
-	x, y := strings.Fields(a), strings.Fields(b)
-	if len(x) == 0 || len(y) == 0 {
-		return 0
-	}
-	seen := map[string]bool{}
-	for _, s := range x {
-		seen[s] = true
-	}
-	common := 0
-	for _, s := range y {
-		if seen[s] {
-			common++
+func comparableTitle(s string) string {
+	s = Normalize(s)
+	for _, suffix := range []string{"game of the year edition", "game of the year", "goty edition", "goty", "complete edition", "definitive edition", "deluxe edition", "ultimate edition", "special edition"} {
+		if strings.HasSuffix(s, " "+suffix) {
+			return strings.TrimSpace(strings.TrimSuffix(s, suffix))
 		}
 	}
-	return 2 * float64(common) / float64(len(x)+len(y))
+	return s
 }
+func Similarity(a, b string) float64 {
+	a, b = comparableTitle(a), comparableTitle(b)
+	if a == "" || b == "" {
+		return 0
+	}
+	if a == b {
+		return 1
+	}
+	left, right := map[string]int{}, map[string]int{}
+	numbers := func(tokens map[string]int) string {
+		var out []string
+		for token := range tokens {
+			isNumber := true
+			for _, r := range token {
+				if !unicode.IsDigit(r) {
+					isNumber = false
+					break
+				}
+			}
+			if isNumber || romanNumerals[token] {
+				out = append(out, token)
+			}
+		}
+		sort.Strings(out)
+		return strings.Join(out, " ")
+	}
+	for _, token := range strings.Fields(a) {
+		left[token]++
+	}
+	for _, token := range strings.Fields(b) {
+		right[token]++
+	}
+	// A high franchise-name overlap must not substitute another numbered sequel.
+	if numbers(left) != numbers(right) {
+		return 0
+	}
+	common := 0
+	for token, count := range left {
+		common += min(count, right[token])
+	}
+	return float64(common) / float64(len(strings.Fields(a))+len(strings.Fields(b))-common)
+}
+
+var romanNumerals = map[string]bool{"i": true, "ii": true, "iii": true, "iv": true, "v": true, "vi": true, "vii": true, "viii": true, "ix": true, "x": true, "xi": true, "xii": true, "xiii": true, "xiv": true, "xv": true, "xvi": true}
+
 func wait(ctx context.Context, d time.Duration) error {
 	if d <= 0 {
 		return ctx.Err()
@@ -161,7 +193,14 @@ func (s *Service) request(ctx context.Context, c config.IGDB, body string) ([]Ob
 			return nil, fmt.Errorf("IGDB HTTP %d", res.StatusCode)
 		}
 		var out []Object
-		e = json.NewDecoder(io.LimitReader(res.Body, 8<<20)).Decode(&out)
+		decoder := json.NewDecoder(io.LimitReader(res.Body, 8<<20))
+		e = decoder.Decode(&out)
+		if e == nil {
+			var extra any
+			if decoder.Decode(&extra) != io.EOF {
+				e = errors.New("invalid IGDB response: trailing data")
+			}
+		}
 		res.Body.Close()
 		if e == nil && out == nil {
 			e = errors.New("invalid IGDB response: expected array")
@@ -172,6 +211,14 @@ func (s *Service) request(ctx context.Context, c config.IGDB, body string) ([]Ob
 }
 func (s *Service) lookup(ctx context.Context, c config.IGDB, title string) (Object, error) {
 	query := Normalize(title)
+	count := 0
+	for index := range query {
+		if count == 160 {
+			query = query[:index]
+			break
+		}
+		count++
+	}
 	if query == "" {
 		return nil, nil
 	}

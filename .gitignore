@@ -4,3 +4,8 @@
 /config.json
 /data/
 *.test
+
+/config.json.lock
+.env
+.env.*
+!.env.example

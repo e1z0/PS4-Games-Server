@@ -38,15 +38,17 @@ type Record struct {
 	IGDB            map[string]any `json:"igdb,omitempty"`
 }
 type Cached struct {
-	Mapping  string      `json:"mapping"`
-	Root     string      `json:"root"`
-	Relative string      `json:"relative"`
-	Category string      `json:"category"`
-	Size     int64       `json:"size"`
-	Modified int64       `json:"modified"`
-	Change   string      `json:"change"`
-	Package  ps4.Package `json:"package"`
-	Release  string      `json:"release"`
+	// Canonical is used only to deduplicate retained unavailable mappings; reuse keys stay mapping-relative.
+	Canonical string      `json:"canonical,omitempty"`
+	Mapping   string      `json:"mapping"`
+	Root      string      `json:"root"`
+	Relative  string      `json:"relative"`
+	Category  string      `json:"category"`
+	Size      int64       `json:"size"`
+	Modified  int64       `json:"modified"`
+	Change    string      `json:"change"`
+	Package   ps4.Package `json:"package"`
+	Release   string      `json:"release"`
 }
 type State struct {
 	Version int      `json:"version"`
@@ -70,14 +72,20 @@ type Enricher interface {
 	Enrich(context.Context, config.Config, []Cached) (map[string]map[string]any, []string, error)
 }
 type Engine struct {
-	mu       sync.RWMutex
-	state    State
-	job      Job
-	cancel   context.CancelFunc
-	logs     []string
-	metadata map[string]map[string]any
-	Enricher Enricher
-	inspect  func(string) (ps4.Package, error)
+	mu              sync.RWMutex
+	catalogMu       sync.Mutex
+	catalogKey      string
+	catalogRevision uint64
+	published       map[string]Catalog
+	revision        uint64
+	state           State
+	retired         []Cached
+	job             Job
+	cancel          context.CancelFunc
+	logs            []string
+	metadata        map[string]map[string]any
+	Enricher        Enricher
+	inspect         func(string) (ps4.Package, error)
 }
 
 func New(c config.Config) (*Engine, error) {
@@ -89,7 +97,25 @@ func New(c config.Config) (*Engine, error) {
 	if s.Version != 1 {
 		return nil, errors.New("unsupported scan cache version")
 	}
-	return &Engine{state: s, metadata: map[string]map[string]any{}, inspect: ps4.Inspect}, nil
+	// A restarted process must never serve a cached root that the current
+	// configuration no longer enables. Live changes publish with the next scan.
+	allowed := map[string]string{}
+	for _, m := range c.Mappings {
+		if m.Enabled {
+			allowed[m.ID] = m.Path
+		}
+	}
+	entries := s.Entries[:0]
+	var retired []Cached
+	for _, entry := range s.Entries {
+		if root, ok := allowed[entry.Mapping]; ok && root == entry.Root {
+			entries = append(entries, entry)
+		} else {
+			retired = append(retired, entry)
+		}
+	}
+	s.Entries = entries
+	return &Engine{state: s, retired: retired, metadata: map[string]map[string]any{}, inspect: ps4.Inspect}, nil
 }
 func (e *Engine) Log(s string) {
 	e.mu.Lock()
@@ -175,6 +201,9 @@ func same(v Cached, s fs.FileInfo) bool {
 func key(m, rel string) string { return m + "/" + rel }
 func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result error) {
 	defer func() {
+		if result != nil && ctx.Err() == nil {
+			e.issue("scan failed: " + result.Error())
+		}
 		e.mu.Lock()
 		e.job.Running = false
 		e.job.Finished = time.Now()
@@ -188,11 +217,15 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 	}()
 	e.Log("scan started")
 	old := e.Snapshot()
+	e.mu.RLock()
+	old = append(old, e.retired...)
+	e.mu.RUnlock()
 	oldMap := map[string]Cached{}
 	for _, v := range old {
 		oldMap[key(v.Mapping, v.Relative)] = v
 	}
 	next := []Cached{}
+	retained := map[string]bool{}
 	seen := map[string]bool{}
 	mappings := append([]config.Mapping{}, c.Mappings...)
 	sort.Slice(mappings, func(i, j int) bool { return mappings[i].ID < mappings[j].ID })
@@ -206,6 +239,13 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 		root, err := filepath.EvalSymlinks(m.Path)
 		if err == nil {
 			root, err = filepath.Abs(root)
+		}
+		if err == nil {
+			var info fs.FileInfo
+			info, err = os.Stat(root)
+			if err == nil && !info.IsDir() {
+				err = fs.ErrInvalid
+			}
 		}
 		var paths []string
 		if err == nil {
@@ -233,6 +273,7 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 			for _, v := range old {
 				if v.Mapping == m.ID && v.Root == m.Path {
 					next = append(next, v)
+					retained[key(v.Mapping, v.Relative)] = true
 				}
 			}
 			continue
@@ -259,7 +300,7 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 			}
 			prev, exists := oldMap[key(m.ID, rel)]
 			reuse := exists && prev.Root == m.Path && same(prev, s) && !force
-			v := Cached{Mapping: m.ID, Root: m.Path, Relative: rel, Category: m.Category, Size: s.Size(), Modified: s.ModTime().UnixNano(), Change: stamp(s), Release: s.ModTime().Format("01-02-2006")}
+			v := Cached{Canonical: canonical, Mapping: m.ID, Root: m.Path, Relative: rel, Category: m.Category, Size: s.Size(), Modified: s.ModTime().UnixNano(), Change: stamp(s), Release: s.ModTime().Format("01-02-2006")}
 			if reuse {
 				v.Package = prev.Package
 				v.Release = prev.Release
@@ -274,16 +315,17 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 				e.job.Inspected++
 			}
 			e.mu.Unlock()
-			if err != nil {
-				e.issue("invalid PS4 package: " + rel)
+			after, statErr := os.Stat(canonical)
+			if statErr != nil || !same(v, after) {
+				e.issue("file changed during scan: " + rel)
+				if exists && prev.Root == m.Path {
+					next = append(next, prev)
+					retained[key(prev.Mapping, prev.Relative)] = true
+				}
 				continue
 			}
-			after, err := os.Stat(canonical)
-			if err != nil || !same(v, after) {
-				e.issue("file changed during scan: " + rel)
-				if exists {
-					next = append(next, prev)
-				}
+			if err != nil {
+				e.issue("invalid PS4 package: " + rel)
 				continue
 			}
 			for _, warning := range v.Package.Warnings {
@@ -297,6 +339,29 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 		}
 	}
 	// Deduplicate retained entries too, without discarding inaccessible mapping records.
+	sort.Slice(next, func(i, j int) bool {
+		ki, kj := key(next[i].Mapping, next[i].Relative), key(next[j].Mapping, next[j].Relative)
+		if retained[ki] != retained[kj] {
+			return retained[ki]
+		}
+		return key(next[i].Mapping, next[i].Relative) < key(next[j].Mapping, next[j].Relative)
+	})
+	unique := next[:0]
+	canonicalSeen := map[string]bool{}
+	for _, v := range next {
+		canonical := v.Canonical
+		if canonical == "" {
+			canonical, _ = storage.Resolve(v.Root, v.Relative)
+		}
+		if canonical != "" && canonicalSeen[canonical] {
+			continue
+		}
+		if canonical != "" {
+			canonicalSeen[canonical] = true
+		}
+		unique = append(unique, v)
+	}
+	next = unique
 	sort.Slice(next, func(i, j int) bool {
 		return key(next[i].Mapping, next[i].Relative) < key(next[j].Mapping, next[j].Relative)
 	})
@@ -338,7 +403,9 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 	}
 	e.mu.Lock()
 	e.state = state
+	e.retired = nil
 	e.metadata = meta
+	e.revision++
 	e.job.Removed = removed
 	e.mu.Unlock()
 	return nil
@@ -446,9 +513,29 @@ func Catalogs(c config.Config, entries []Cached, meta map[string]map[string]any)
 	return out
 }
 func (e *Engine) Catalogs(c config.Config) map[string]Catalog {
+	// Cover validation belongs to publishing a snapshot, not every browser/feed
+	// request. Keep expensive filesystem/image work outside the job status lock.
+	encoded, _ := json.Marshal(struct {
+		Public, Downloads, Covers string
+		Mappings                  []config.Mapping
+	}{c.PublicURL, c.Downloads(), c.CoversDir(), c.Mappings})
+	cacheKey := string(encoded)
+	e.catalogMu.Lock()
+	defer e.catalogMu.Unlock()
 	e.mu.RLock()
-	defer e.mu.RUnlock()
-	return Catalogs(c, e.state.Entries, e.metadata)
+	revision := e.revision
+	if e.published != nil && e.catalogKey == cacheKey && e.catalogRevision == revision {
+		e.mu.RUnlock()
+		return e.published
+	}
+	entries := append([]Cached{}, e.state.Entries...)
+	meta := e.metadata
+	e.mu.RUnlock()
+	cats := Catalogs(c, entries, meta)
+	e.published = cats
+	e.catalogKey = cacheKey
+	e.catalogRevision = revision
+	return cats
 }
 func writeCatalogs(c config.Config, next, old []Cached, meta map[string]map[string]any) error {
 	cats := Catalogs(c, next, meta)
@@ -484,5 +571,6 @@ func (e *Engine) RestoreMetadata(ctx context.Context, c config.Config) {
 	}
 	e.mu.Lock()
 	e.metadata = m
+	e.revision++
 	e.mu.Unlock()
 }

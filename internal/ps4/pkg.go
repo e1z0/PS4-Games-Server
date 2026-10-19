@@ -24,14 +24,15 @@ type Entry struct {
 	Encrypted bool  `json:"encrypted"`
 }
 type Package struct {
-	TitleID   string   `json:"title_id"`
-	ContentID string   `json:"content_id"`
-	Title     string   `json:"title"`
-	Version   string   `json:"version"`
-	Category  string   `json:"category"`
-	Firmware  *string  `json:"firmware"`
-	Icon      Entry    `json:"icon"`
-	Warnings  []string `json:"warnings,omitempty"`
+	TitleID          string   `json:"title_id"`
+	ContentID        string   `json:"content_id"`
+	Title            string   `json:"title"`
+	Version          string   `json:"version"`
+	Category         string   `json:"category"`
+	Firmware         *string  `json:"firmware"`
+	Icon             Entry    `json:"icon"`
+	Warnings         []string `json:"warnings,omitempty"`
+	EncryptedEntries int      `json:"encrypted_entries,omitempty"`
 }
 
 func cstr(b []byte) string         { return strings.TrimSpace(string(bytes.SplitN(b, []byte{0}, 2)[0])) }
@@ -126,6 +127,7 @@ func Parse(r io.ReaderAt, size int64) (Package, error) {
 		return p, e
 	}
 	entries := map[uint32]Entry{}
+	additionalEncrypted := 0
 	for i := int64(0); i < n; i++ {
 		b := table[i*32:]
 		id := be.Uint32(b)
@@ -137,6 +139,15 @@ func Parse(r io.ReaderAt, size int64) (Package, error) {
 			return p, errors.New("entry outside package")
 		}
 		entries[id] = v
+		if v.Encrypted {
+			p.EncryptedEntries++
+			if id != 0x1000 && id != 0x1200 {
+				additionalEncrypted++
+			}
+		}
+	}
+	if additionalEncrypted > 0 {
+		p.Warnings = append(p.Warnings, fmt.Sprintf("%d additional encrypted CNT entries", additionalEncrypted))
 	}
 	p.ContentID = cstr(h[0x40:0x64])
 	p.Icon = entries[0x1200]

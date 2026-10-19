@@ -3,6 +3,7 @@ VERSION ?= 0.1.0-dev
 IMAGE ?= nulldevil/ps4-games-server
 TAG ?= $(VERSION)
 STABLE ?= 0
+BUILDER ?= ps4-games-server-release
 CONFIG ?= config.json
 BINARY := bin/ps4-server
 .PHONY: all build run test check fmt source-map release docker deploy logs down upload
@@ -10,7 +11,7 @@ all: build
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags '-s -w -X main.version=$(VERSION)' -o $(BINARY) ./cmd/ps4-server
 run:
-	go run ./cmd/ps4-server serve -config $(CONFIG)
+	go run ./cmd/ps4-server serve -config "$(CONFIG)"
 test:
 	go test ./...
 check:
@@ -35,4 +36,5 @@ down:
 	docker compose down
 upload:
 	@test "$(TAG)" != latest || (echo 'Use a version tag; latest requires STABLE=1 in addition to a version tag'; exit 1)
-	@if [ "$(STABLE)" = 1 ]; then docker buildx build --platform linux/amd64,linux/arm64 --build-arg VERSION=$(VERSION) -t $(IMAGE):$(TAG) -t $(IMAGE):latest --push .; else docker buildx build --platform linux/amd64,linux/arm64 --build-arg VERSION=$(VERSION) -t $(IMAGE):$(TAG) --push .; fi
+	@docker buildx inspect "$(BUILDER)" >/dev/null 2>&1 || docker buildx create --name "$(BUILDER)" --driver docker-container
+	@if [ "$(STABLE)" = 1 ]; then docker buildx build --builder "$(BUILDER)" --platform linux/amd64,linux/arm64 --build-arg VERSION=$(VERSION) -t $(IMAGE):$(TAG) -t $(IMAGE):latest --push .; else docker buildx build --builder "$(BUILDER)" --platform linux/amd64,linux/arm64 --build-arg VERSION=$(VERSION) -t $(IMAGE):$(TAG) --push .; fi

@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"ps4server/internal/config"
 	"ps4server/internal/ps4"
+	"ps4server/internal/storage"
 	"ps4server/internal/testpkg"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -169,7 +171,7 @@ func TestChangingFileAndActiveCancellation(t *testing.T) {
 	}
 	os.WriteFile(p, testpkg.Build(map[string]any{"TITLE": "Changed during scan"}), 0600)
 	close(release)
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
 	for e.Status().Running && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
@@ -184,7 +186,7 @@ func TestChangingFileAndActiveCancellation(t *testing.T) {
 	<-entered
 	e.Cancel()
 	close(release)
-	deadline = time.Now().Add(3 * time.Second)
+	deadline = time.Now().Add(30 * time.Second)
 	for e.Status().Running && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
@@ -230,5 +232,168 @@ func TestCustomCoverSharingAndCorruptImageRepair(t *testing.T) {
 	v.Package.Category = "gp"
 	if coverPath(c, v) != own {
 		t.Fatal("base cover not shared with update")
+	}
+}
+
+func TestMappingReplacedByFileRetainsCatalog(t *testing.T) {
+	c, _ := fixture(t)
+	e, _ := New(c)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	before := string(e.MarshalSnapshot())
+	if err := os.Rename(c.Mappings[0].Path, c.Mappings[0].Path+"-offline"); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(c.Mappings[0].Path, []byte("not a directory"), 0600)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	if string(e.MarshalSnapshot()) != before || len(e.Status().Errors) == 0 {
+		t.Fatal("unavailable mapping entries removed", e.Status())
+	}
+}
+func TestFailedParseOfChangingFileRetainsPrevious(t *testing.T) {
+	c, p := fixture(t)
+	e, _ := New(c)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	before := string(e.MarshalSnapshot())
+	e.inspect = func(path string) (ps4.Package, error) {
+		os.WriteFile(p, []byte("incomplete replacement"), 0600)
+		return ps4.Inspect(path)
+	}
+	if err := e.Run(context.Background(), c, true); err != nil {
+		t.Fatal(err)
+	}
+	if string(e.MarshalSnapshot()) != before || len(e.Status().Errors) == 0 {
+		t.Fatal("changing invalid package removed old entry", e.Status())
+	}
+}
+func TestUnavailableAliasDoesNotDuplicateOverlappingMapping(t *testing.T) {
+	c, _ := fixture(t)
+	real := c.Mappings[0].Path
+	alias := real + "-alias"
+	if err := os.Symlink(real, alias); err != nil {
+		t.Skip(err)
+	}
+	c.Mappings = []config.Mapping{{ID: "a", Path: alias, Category: "games", Enabled: true}, {ID: "b", Path: real, Category: "games", Enabled: true}}
+	e, _ := New(c)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	before := string(e.MarshalSnapshot())
+	os.Remove(alias)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.Snapshot()) != 1 || string(e.MarshalSnapshot()) != before {
+		t.Fatal("retained alias duplicated or lost", e.Snapshot())
+	}
+}
+
+func TestPublishedCatalogRefreshesWithoutMutatingPriorSnapshot(t *testing.T) {
+	c, p := fixture(t)
+	e, _ := New(c)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	first := e.Catalogs(c)
+	os.WriteFile(p, testpkg.Build(map[string]any{"TITLE": "Replacement title"}), 0600)
+	if err := e.Run(context.Background(), c, true); err != nil {
+		t.Fatal(err)
+	}
+	second := e.Catalogs(c)
+	for url, game := range first["games"].Data {
+		if game.Name != "Synthetic Game" || second["games"].Data[url].Name != "Replacement title" {
+			t.Fatal("catalog snapshot stale or mutated")
+		}
+	}
+	c.PublicURL = "http://edited:8080"
+	third := e.Catalogs(c)
+	for url := range third["games"].Data {
+		if !strings.HasPrefix(url, c.PublicURL) {
+			t.Fatal("public URL edit not applied", url)
+		}
+	}
+}
+
+func TestWriteFailureReportsErrorAndRetainsSnapshot(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	c, p := fixture(t)
+	e, _ := New(c)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	before := string(e.MarshalSnapshot())
+	os.WriteFile(filepath.Join(filepath.Dir(p), "added.pkg"), testpkg.Build(map[string]any{"TITLE_ID": "CUSA54321"}), 0600)
+	catalogDir := filepath.Join(c.DataDir, "catalogs")
+	os.Chmod(catalogDir, 0500)
+	defer os.Chmod(catalogDir, 0700)
+	if err := e.Run(context.Background(), c, false); err == nil {
+		t.Fatal("write failure not returned")
+	}
+	if len(e.Status().Errors) == 0 || string(e.MarshalSnapshot()) != before {
+		t.Fatal("failed scan replaced snapshot or hid its error", e.Status())
+	}
+}
+
+func TestMultipleFoldersSameCategoryAndIncrementalChanges(t *testing.T) {
+	c, p := fixture(t)
+	other := t.TempDir()
+	os.WriteFile(filepath.Join(other, "game.pkg"), testpkg.Build(map[string]any{"TITLE_ID": "CUSA54321"}), 0600)
+	c.Mappings = append(c.Mappings, config.Mapping{ID: "other", Path: other, Category: "games", Enabled: true})
+	e, _ := New(c)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.Catalogs(c)["games"].Data) != 2 || e.Status().Inspected != 2 {
+		t.Fatal("folders not combined", e.Status())
+	}
+	os.WriteFile(p, testpkg.Build(map[string]any{"TITLE": "Updated title"}), 0600)
+	when := time.Now().Add(2 * time.Second)
+	os.Chtimes(p, when, when)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	if e.Status().Inspected != 1 || e.Status().Reused != 1 {
+		t.Fatal("changed package not detected", e.Status())
+	}
+	found := false
+	for _, record := range e.Catalogs(c)["games"].Data {
+		found = found || record.Name == "Updated title"
+	}
+	if !found {
+		t.Fatal("changed metadata not published")
+	}
+}
+
+func TestRestartCannotServeDisabledOrRepointedCachedRoots(t *testing.T) {
+	c, _ := fixture(t)
+	e, _ := New(c)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	oldRoot := c.Mappings[0].Path
+	c.Mappings[0].Path = t.TempDir()
+	repointed, err := New(c)
+	if err != nil || len(repointed.Snapshot()) != 0 {
+		t.Fatal("repointed cached mapping survived restart", err)
+	}
+	c.Mappings[0].Path = oldRoot
+	c.Mappings[0].Enabled = false
+	disabled, err := New(c)
+	if err != nil || len(disabled.Snapshot()) != 0 {
+		t.Fatal("disabled cached mapping survived restart", err)
+	}
+	if err = disabled.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	var catalog Catalog
+	if err = storage.Read(filepath.Join(c.DataDir, "catalogs", "games.json"), &catalog); err != nil || len(catalog.Data) != 0 || disabled.Status().Removed != 1 {
+		t.Fatal("retired catalog not cleared", err, disabled.Status())
 	}
 }

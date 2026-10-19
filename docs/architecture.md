@@ -5,7 +5,7 @@
 | Package / location | Responsibility and tests |
 | --- | --- |
 | `internal/config` | Schema/version, defaults, presence-aware environment seeding, validation, redaction, PBKDF2 credentials. Tests preserve false/zero, persist web edits, validate seeds and remove plaintext. |
-| `internal/storage` | Atomic temp/sync/rename writes, unchanged-file preservation, safe containment resolution. Storage tests cover permissions and concurrent atomic readers. |
+| `internal/storage` | Atomic temp/sync/rename writes, unchanged-file preservation, safe containment resolution and OS-owned writer locks (flock / LockFileEx). Storage tests cover permissions and concurrent atomic readers. |
 | `internal/ps4` | Bounded ReaderAt CNT table and SFO parsing, firmware, type/region, image validation and plaintext extraction. Tests cover malformed/truncated/encrypted containers, homebrew, firmware and fuzzing. |
 | `internal/testpkg` | Synthetic SFO/CNT fixture construction, including valid tiny PNGs. No game content. |
 | `internal/scanner` | Single active job, cancellation/progress/logs, recursive mapping discovery, incremental stat fingerprints, icon repair, deterministic catalogs and persisted cache. Tests cover restart reuse, timestamp preservation, unavailable mappings, removal, overlap, Unicode and a sparse 5 GiB package. |
@@ -35,7 +35,7 @@
 | GET `/api/v1/auth/session` | Session bootstrap; includes redacted settings |
 | POST `/api/v1/auth/logout` | Admin session + CSRF; invalidates session |
 | GET/PUT `/api/v1/settings` | Admin; writes require CSRF, secrets redacted/retained when blank |
-| GET `/api/v1/directories?path=...` | Admin or setup session; absolute server directory browser |
+| GET `/api/v1/directories?path=...` | Admin or setup session; absolute server directory browser, including native Windows drive roots |
 | GET `/api/v1/status`, `/api/v1/logs` | Admin; active job, counts, restart notice and last 200 log events |
 | POST `/api/v1/scan`, `/api/v1/scan/cancel` | Admin + CSRF; force flag or cancellation |
 | GET/PUT `/api/v1/metadata/overrides` | Admin; writes require CSRF, keyed JSON objects; next scan applies |
@@ -55,3 +55,13 @@ Catalog URLs use explicitly configured origins and escaped nested relative segme
 See SOURCE_MAP.md for the generated file inventory, docs/validation.md for actual check results and docs/parity.md for compatibility details.
 
 `tools/assets` regenerates the embedded fallback PNG using only Go. Feed fallback URLs use PNG so native PS4 raster decoders can load them; the browser can also use the SVG fallback. Embedded assets use ServeContent for HEAD and ranges.
+
+## Lifecycle and portability audit
+
+The CLI acquires the configuration lock before loading/seeding mutable commands. The HTTP app locks its data directory before restoring caches; one-shot scan acquires the same data lock. Setup transfers this lock when selecting a new directory. Tests exercise a second process and abrupt process exit to verify lock exclusion and release. Close cancels jobs before releasing the data lock.
+
+The HTTP download whitelist uses published snapshot roots. Pending mapping edits cannot invalidate in-flight/current-catalog downloads; a completed scan publishes the new roots. On restart, scanner.New hides disabled/repointed cached roots and retains their records privately only for the next disk-catalog cleanup/removal count. Unavailable mappings keep canonical hints for deduplication across aliases. Failed parses are followed by a stat check too, so packages changing during a failed read retain their previous record. Invalid directory roots and write failures report errors without silently publishing an empty/replacement snapshot.
+
+Feed/library catalogs cache their immutable published view per configuration/revision. Image validation stays outside the job mutex and does not repeat for each browser/feed request. Public-URL edits and completed scans invalidate this view. Numbered IGDB sequels are distinguished, repeated words cannot inflate match scores, edition suffixes can match the base title, and malformed/trailing API responses cannot become definitive misses.
+
+The Docker runtime stage executes no target-CPU commands: a native build stage cross-compiles Go, and a native files stage prepares certificates/accounts/directories for both target images. CI uses [Docker's Buildx setup action](https://github.com/docker/setup-buildx-action) and exports a Linux amd64/arm64 OCI image archive without QEMU. LF checkout attributes keep Go golden tests and source-map checks portable; the inventory checker also tolerates CRLF on its existing Markdown input. A Go subprocess integration test covers the real CLI, two actual listeners, public feeds/downloads, private APIs and cross-process exclusion on each native CI OS.

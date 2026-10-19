@@ -11,3 +11,12 @@
 - Hardened Windows atomic replacement, repaired truncated images, restored cross-category cover sharing and rejected malformed IGDB responses without negative caching.
 - Verified browser setup/admin/library, non-root Compose deployment, restart persistence, HTTP range/HEAD and six release cross-builds.
 - Serve an embedded PNG fallback to PS4 clients, alongside the browser SVG fallback.
+
+### Completion audit
+
+- Preserve published downloads across pending mapping edits and hide disabled/repointed cached roots at restart; clean retired disk catalogs on the next scan.
+- Retain entries for invalid directory roots, overlapping unavailable aliases and packages changing during failed reads; report scan write failures.
+- Enforce cross-process configuration/data writer locks with automatic crash release and setup lock transfer.
+- Correct setup listener restart notices, native Windows browsing, wizard Back state, canonical feed links and strict JSON/origin/duration validation.
+- Cache immutable feed/library views, distinguish numbered IGDB sequels and repeated words, and report additional encrypted CNT entries without decryption.
+- Build both Docker architectures without QEMU and export the OCI index in CI; keep checkout line endings portable.

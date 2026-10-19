@@ -25,8 +25,16 @@ jobs:
           go-version: '1.26.x'
       - run: make check
       - run: make release VERSION=ci
-      - run: docker build -t ps4-server:ci .
+      - uses: docker/setup-buildx-action@v4
+      - name: Build both Linux image architectures without emulation
+        run: |
+          mkdir -p runtime
+          docker buildx build --platform linux/amd64,linux/arm64 --build-arg VERSION=ci --output type=oci,dest=runtime/linux-images.tar .
       - uses: actions/upload-artifact@v4
         with:
           name: native-archives
           path: dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-images
+          path: runtime/linux-images.tar

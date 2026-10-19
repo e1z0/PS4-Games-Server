@@ -7,8 +7,10 @@ import (
 	"crypto/subtle"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
+	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -19,6 +21,7 @@ import (
 	"ps4server/internal/ps4"
 	"ps4server/internal/scanner"
 	"ps4server/internal/storage"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -47,20 +50,47 @@ type App struct {
 	sessions map[string]session
 	attempts map[string]attempt
 	ctx      context.Context
+	stop     context.CancelFunc
+	dataLock *storage.Lock
 }
 
 func New(ctx context.Context, path string, c config.Config) (*App, error) {
-	e, err := scanner.New(c)
+	dataLock, err := storage.Acquire(filepath.Join(c.DataDir, ".writer.lock"))
 	if err != nil {
 		return nil, err
 	}
+	e, err := scanner.New(c)
+	if err != nil {
+		dataLock.Close()
+		return nil, err
+	}
+	ctx, stop := context.WithCancel(ctx)
 	e.Enricher = metadata.New()
 	e.RestoreMetadata(ctx, c)
-	a := &App{cfg: c, initial: c, path: path, engine: e, ctx: ctx, sessions: map[string]session{}, attempts: map[string]attempt{}}
+	a := &App{cfg: c, initial: c, path: path, engine: e, ctx: ctx, stop: stop, dataLock: dataLock, sessions: map[string]session{}, attempts: map[string]attempt{}}
 	if !c.Configured {
 		a.token = config.Token()
 	}
 	return a, nil
+}
+
+// Close cancels jobs before releasing the data writer lock. Stop HTTP requests first.
+func (a *App) Close() error {
+	a.stop()
+	engine := a.Engine()
+	engine.Cancel()
+	deadline := time.NewTimer(10 * time.Second)
+	defer deadline.Stop()
+	for engine.Status().Running {
+		select {
+		case <-deadline.C:
+			return fmt.Errorf("scan did not stop; data lock retained")
+		case <-time.After(time.Millisecond):
+		}
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.dataLock.Close()
 }
 func (a *App) SetupToken() string      { a.mu.Lock(); defer a.mu.Unlock(); return a.token }
 func (a *App) Engine() *scanner.Engine { a.mu.Lock(); defer a.mu.Unlock(); return a.engine }
@@ -74,28 +104,30 @@ func (a *App) Config() config.Config {
 	return c
 }
 func (a *App) Schedule() {
-	go func() {
-		last := time.Now()
-		if c := a.Config(); c.Configured && c.Scan.Startup {
-			a.Engine().Start(a.ctx, c, false)
-		}
-		tick := time.NewTicker(time.Second)
-		defer tick.Stop()
-		for {
-			select {
-			case <-a.ctx.Done():
-				a.Engine().Cancel()
+	go func() { tick := time.NewTicker(time.Second); defer tick.Stop(); a.schedule(tick.C, time.Now()) }()
+}
+func (a *App) schedule(ticks <-chan time.Time, started time.Time) {
+	last := started
+	if c := a.Config(); c.Configured && c.Scan.Startup {
+		a.Engine().Start(a.ctx, c, false)
+	}
+	for {
+		select {
+		case <-a.ctx.Done():
+			a.Engine().Cancel()
+			return
+		case now, ok := <-ticks:
+			if !ok {
 				return
-			case <-tick.C:
-				c := a.Config()
-				if c.Configured && c.Scan.IntervalMinutes > 0 && time.Since(last) >= time.Duration(c.Scan.IntervalMinutes)*time.Minute {
-					if a.Engine().Start(a.ctx, c, false) == nil {
-						last = time.Now()
-					}
+			}
+			c := a.Config()
+			if c.Configured && c.Scan.IntervalMinutes > 0 && now.Sub(last) >= time.Duration(c.Scan.IntervalMinutes)*time.Minute {
+				if a.Engine().Start(a.ctx, c, false) == nil {
+					last = now
 				}
 			}
 		}
-	}()
+	}
 }
 func jsonOut(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -106,7 +138,8 @@ func fail(w http.ResponseWriter, status int, s string) {
 	jsonOut(w, status, map[string]string{"error": s})
 }
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
-	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
 		fail(w, 415, "application/json required")
 		return false
 	}
@@ -158,6 +191,7 @@ func (a *App) Handler(downloadOnly bool) http.Handler {
 			return
 		}
 		if strings.HasPrefix(p, "/api/v1/") {
+			w.Header().Set("Cache-Control", "no-store")
 			a.api(w, r)
 			return
 		}
@@ -233,9 +267,7 @@ func (a *App) auth(r *http.Request) (session, bool) {
 	}
 	return s, true
 }
-func (a *App) newSession(w http.ResponseWriter, r *http.Request, setup bool) session {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+func (a *App) newSessionLocked(w http.ResponseWriter, r *http.Request, setup bool) session {
 	for k, v := range a.sessions {
 		if time.Now().After(v.Expires) {
 			delete(a.sessions, k)
@@ -262,7 +294,7 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		urls := map[string]string{}
 		c := a.Config()
 		for category := range a.Engine().Catalogs(c) {
-			urls[category] = strings.TrimRight(c.PublicURL, "/") + "/" + category
+			urls[category] = strings.TrimRight(c.PublicURL, "/") + "/feeds/" + category
 		}
 		jsonOut(w, 200, urls)
 		return
@@ -281,12 +313,13 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
 		valid := a.token != "" && !a.cfg.Configured && subtle.ConstantTimeCompare([]byte(b.Token), []byte(a.token)) == 1
 		c := a.cfg.Redacted()
-		a.mu.Unlock()
 		if !valid {
+			a.mu.Unlock()
 			fail(w, 403, "invalid or expired setup token")
 			return
 		}
-		s := a.newSession(w, r, true)
+		s := a.newSessionLocked(w, r, true)
+		a.mu.Unlock()
 		jsonOut(w, 200, map[string]any{"csrf": s.CSRF, "config": c})
 		return
 	}
@@ -417,9 +450,14 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.mu.Lock()
+	if a.cfg.Admin.Username != c.Admin.Username || a.cfg.Admin.Hash != c.Admin.Hash || !a.cfg.Configured {
+		a.mu.Unlock()
+		fail(w, 401, "credentials changed; sign in again")
+		return
+	}
 	delete(a.attempts, ip)
+	s := a.newSessionLocked(w, r, false)
 	a.mu.Unlock()
-	s := a.newSession(w, r, false)
 	jsonOut(w, 200, map[string]string{"csrf": s.CSRF})
 }
 func Writable(dir string) error {
@@ -438,6 +476,9 @@ func (a *App) settings(w http.ResponseWriter, r *http.Request, setup bool) {
 	var c config.Config
 	if !decode(w, r, &c) {
 		return
+	}
+	if c.Mappings == nil {
+		c.Mappings = []config.Mapping{}
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -467,8 +508,7 @@ func (a *App) settings(w http.ResponseWriter, r *http.Request, setup bool) {
 	}
 	for _, m := range c.Mappings {
 		if m.Enabled {
-			s, e := os.Stat(m.Path)
-			if e != nil || !s.IsDir() { // Existing unavailable mappings can be retained while editing unrelated settings.
+			if e := CheckPath(m.Path); e != nil { // Existing unavailable mappings can be retained while editing unrelated settings.
 				found := false
 				for _, prev := range old.Mappings {
 					if prev.ID == m.ID && prev.Path == m.Path {
@@ -487,6 +527,20 @@ func (a *App) settings(w http.ResponseWriter, r *http.Request, setup bool) {
 		return
 	}
 	var engine *scanner.Engine
+	var replacementLock *storage.Lock
+	if setup && !a.dataLock.Matches(filepath.Join(c.DataDir, ".writer.lock")) {
+		var err error
+		replacementLock, err = storage.Acquire(filepath.Join(c.DataDir, ".writer.lock"))
+		if err != nil {
+			fail(w, 409, "data directory is in use by another process")
+			return
+		}
+		defer func() {
+			if replacementLock != nil {
+				replacementLock.Close()
+			}
+		}()
+	}
 	if setup {
 		var e error
 		engine, e = scanner.New(c)
@@ -503,7 +557,13 @@ func (a *App) settings(w http.ResponseWriter, r *http.Request, setup bool) {
 	}
 	a.cfg = c
 	if setup {
-		a.initial = c
+		// Setup can swap data engines, but the HTTP listeners are already bound.
+		a.initial.DataDir = c.DataDir
+		if replacementLock != nil {
+			a.dataLock.Close()
+			a.dataLock = replacementLock
+			replacementLock = nil
+		}
 		a.engine = engine
 		a.token = ""
 	}
@@ -535,7 +595,17 @@ func (a *App) directories(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sort.Strings(dirs)
-	jsonOut(w, 200, map[string]any{"path": p, "parent": filepath.Dir(p), "directories": dirs, "path_help": "Paths belong to the server. In Docker use container paths; add host folders through Compose bind mounts."})
+	roots := []string{string(filepath.Separator)}
+	if runtime.GOOS == "windows" {
+		roots = []string{}
+		for drive := 'A'; drive <= 'Z'; drive++ {
+			root := string(drive) + ":\\"
+			if info, err := os.Stat(root); err == nil && info.IsDir() {
+				roots = append(roots, root)
+			}
+		}
+	}
+	jsonOut(w, 200, map[string]any{"path": p, "parent": filepath.Dir(p), "directories": dirs, "roots": roots, "path_help": "Paths belong to the server. In Docker use container paths; add host folders through Compose bind mounts."})
 }
 func (a *App) overrides(w http.ResponseWriter, r *http.Request) {
 	dir := a.Config().DataDir
@@ -569,7 +639,13 @@ func (a *App) overrides(w http.ResponseWriter, r *http.Request) {
 	jsonOut(w, 200, map[string]string{"status": "saved; run a scan to apply"})
 }
 func serveFile(w http.ResponseWriter, r *http.Request, root, rel string) {
-	if _, e := storage.Resolve(root, rel); e != nil {
+	root, e := filepath.EvalSymlinks(root)
+	if e != nil {
+		http.NotFound(w, r)
+		return
+	}
+	canonical, e := storage.Resolve(root, rel)
+	if e != nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -579,7 +655,14 @@ func serveFile(w http.ResponseWriter, r *http.Request, root, rel string) {
 		return
 	}
 	defer base.Close()
-	f, e := base.Open(filepath.FromSlash(rel))
+	// Open the resolved relative path so contained absolute symlinks work too.
+	// OpenRoot still prevents any subsequent symlink swap from leaving the root.
+	resolvedRelative, e := filepath.Rel(root, canonical)
+	if e != nil {
+		http.NotFound(w, r)
+		return
+	}
+	f, e := base.Open(resolvedRelative)
 	if e != nil {
 		http.NotFound(w, r)
 		return
@@ -614,12 +697,10 @@ func (a *App) download(w http.ResponseWriter, r *http.Request) {
 			if v.Mapping != parts[0] || v.Relative != parts[1] {
 				continue
 			}
-			for _, m := range c.Mappings {
-				if m.Enabled && m.ID == v.Mapping && m.Path == v.Root {
-					serveFile(w, r, m.Path, v.Relative)
-					return
-				}
-			}
+			// The published snapshot authorizes this root. Pending mapping edits
+			// must not break downloads belonging to the current/completing job.
+			serveFile(w, r, v.Root, v.Relative)
+			return
 		}
 		http.NotFound(w, r)
 		return
@@ -650,5 +731,14 @@ func CheckPath(path string) error {
 	if !s.IsDir() {
 		return fs.ErrInvalid
 	}
-	return nil
+	f, e := os.Open(path)
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+	_, e = f.ReadDir(1)
+	if e == io.EOF {
+		return nil
+	}
+	return e
 }

@@ -46,6 +46,9 @@ func TestCacheRenewalOfflineOverridesAndRepair(t *testing.T) {
 				return
 			}
 			b, _ := io.ReadAll(r.Body)
+			if !strings.Contains(string(b), "platforms = (48)") {
+				t.Error("IGDB query lacks PS4 filter")
+			}
 			if strings.Contains(string(b), "search") {
 				json.NewEncoder(w).Encode([]Object{{"id": 123, "name": "Synthetic Game"}})
 			} else {
@@ -152,13 +155,15 @@ func TestMapRich(t *testing.T) {
 
 func TestInvalidResponseAndUpdateOnlyDoNotNegativeCache(t *testing.T) {
 	var calls atomic.Int32
+	var response atomic.Value
+	response.Store("null")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/token" {
 			json.NewEncoder(w).Encode(Object{"access_token": "token", "expires_in": 3600})
 			return
 		}
 		calls.Add(1)
-		w.Write([]byte("null"))
+		w.Write([]byte(response.Load().(string)))
 	}))
 	defer ts.Close()
 	s := New()
@@ -176,13 +181,82 @@ func TestInvalidResponseAndUpdateOnlyDoNotNegativeCache(t *testing.T) {
 		t.Fatal("update queried")
 	}
 	entries[0].Package.Category = "gd"
-	_, warnings, e := s.Enrich(context.Background(), c, entries)
-	if e != nil || len(warnings) == 0 {
-		t.Fatal(e, warnings)
+	for _, body := range []string{"null", "[] {}", "[] trailing"} {
+		response.Store(body)
+		_, warnings, e := s.Enrich(context.Background(), c, entries)
+		if e != nil || len(warnings) == 0 {
+			t.Fatal("malformed response accepted", body, e, warnings)
+		}
 	}
 	cache := Cache{}
 	storage.Read(filepath.Join(c.DataDir, "metadata-cache.json"), &cache)
 	if len(cache.Titles) != 0 {
 		t.Fatal("invalid response cached negatively")
+	}
+}
+
+func TestConservativeSequelAndRepeatedWordMatching(t *testing.T) {
+	for _, titles := range [][2]string{{"Call of Duty Modern Warfare 2", "Call of Duty Modern Warfare 3"}, {"Final Fantasy VII", "Final Fantasy VIII"}, {"Man", "Man Man Man Man"}} {
+		score := Similarity(titles[0], titles[1])
+		if score < 0 || score > 1 {
+			t.Fatal("similarity outside 0–1", score)
+		}
+		if score >= 0.8 {
+			t.Fatal("different sequel accepted", titles, score)
+		}
+	}
+	if Similarity("Bloodborne™ Game of the Year Edition", "Bloodborne") != 1 {
+		t.Fatal("base game edition was not recognized")
+	}
+}
+
+func TestNegativeCacheExpiryAndFirstRequestOutage(t *testing.T) {
+	var calls atomic.Int32
+	var outage atomic.Bool
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			json.NewEncoder(w).Encode(Object{"access_token": "token", "expires_in": 3600})
+			return
+		}
+		calls.Add(1)
+		if outage.Load() {
+			w.WriteHeader(503)
+			return
+		}
+		json.NewEncoder(w).Encode([]Object{})
+	}))
+	defer ts.Close()
+	s := New()
+	s.TokenURL = ts.URL + "/token"
+	s.GamesURL = ts.URL + "/games"
+	now := time.Now()
+	s.Now = func() time.Time { return now }
+	c := config.Defaults()
+	c.DataDir = t.TempDir()
+	c.IGDB.Enabled = true
+	c.IGDB.ClientID = "id"
+	c.IGDB.ClientSecret = "secret"
+	c.IGDB.IntervalMS = 0
+	entries := []scanner.Cached{{Category: "games", Package: ps4.Package{TitleID: "CUSA12345", Title: "Synthetic Game", Category: "gd"}}}
+	s.Enrich(context.Background(), c, entries)
+	s.Enrich(context.Background(), c, entries)
+	if calls.Load() != 1 {
+		t.Fatal("negative cache missed")
+	}
+	now = now.Add(8 * 24 * time.Hour)
+	s.Enrich(context.Background(), c, entries)
+	if calls.Load() != 2 {
+		t.Fatal("negative cache did not expire")
+	}
+	outage.Store(true)
+	entries[0].Package.TitleID = "CUSA54321"
+	_, warnings, err := s.Enrich(context.Background(), c, entries)
+	if err != nil || len(warnings) == 0 {
+		t.Fatal(err, warnings)
+	}
+	cache := Cache{}
+	storage.Read(filepath.Join(c.DataDir, "metadata-cache.json"), &cache)
+	if _, present := cache.Titles["CUSA54321"]; present {
+		t.Fatal("fresh network failure became negative cache")
 	}
 }

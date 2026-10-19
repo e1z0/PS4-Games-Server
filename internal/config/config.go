@@ -2,6 +2,7 @@
 package config
 
 import (
+	"bytes"
 	"crypto/pbkdf2"
 	"crypto/rand"
 	"crypto/sha256"
@@ -18,6 +19,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Mapping struct {
@@ -79,6 +81,12 @@ func Load(path string, seed bool) (Config, error) {
 		if e = json.Unmarshal(b, &raw); e != nil {
 			return Config{}, e
 		}
+		if raw == nil {
+			return Config{}, errors.New("configuration must be a JSON object")
+		}
+		if e = rejectNull(raw, "configuration"); e != nil {
+			return Config{}, e
+		}
 	}
 	if seed {
 		for name, key := range Env {
@@ -130,6 +138,9 @@ func Load(path string, seed bool) (Config, error) {
 				dest = next
 			}
 			dest[last] = v
+			if err := rejectNull(partial, "environment "+name); err != nil {
+				return Config{}, err
+			}
 			encoded, _ := json.Marshal(partial)
 			if err := json.Unmarshal(encoded, &probe); err != nil {
 				return Config{}, fmt.Errorf("invalid %s", name)
@@ -150,7 +161,9 @@ func Load(path string, seed bool) (Config, error) {
 	}
 	c := Defaults()
 	b, _ = json.Marshal(raw)
-	if e = json.Unmarshal(b, &c); e != nil {
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.DisallowUnknownFields()
+	if e = decoder.Decode(&c); e != nil {
 		return c, e
 	}
 	if c.Admin.Password != "" {
@@ -172,6 +185,9 @@ func Load(path string, seed bool) (Config, error) {
 	return c, e
 }
 func Save(path string, c Config) error {
+	if c.Mappings == nil {
+		c.Mappings = []Mapping{}
+	}
 	if c.Admin.Password != "" {
 		var e error
 		c.Admin.Hash, e = Hash(c.Admin.Password)
@@ -180,7 +196,31 @@ func Save(path string, c Config) error {
 		}
 		c.Admin.Password = ""
 	}
+	if e := c.Validate(); e != nil {
+		return e
+	}
 	return storage.JSON(path, c)
+}
+
+func rejectNull(value any, path string) error {
+	if value == nil {
+		return fmt.Errorf("%s cannot be null", path)
+	}
+	switch v := value.(type) {
+	case map[string]any:
+		for key, child := range v {
+			if err := rejectNull(child, path+"."+key); err != nil {
+				return err
+			}
+		}
+	case []any:
+		for _, child := range v {
+			if err := rejectNull(child, path+"[]"); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 func (c Config) Validate() error {
 	if c.Version != 1 {
@@ -198,21 +238,38 @@ func (c Config) Validate() error {
 	if c.Listen == "" {
 		return errors.New("listen is required")
 	}
+	if c.DownloadListen != "" && c.DownloadListen == c.Listen {
+		return errors.New("download listener must differ from the main listener")
+	}
 	for _, s := range []string{c.PublicURL, c.DownloadURL} {
 		if s == "" {
 			continue
 		}
 		u, e := url.Parse(s)
-		if e != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" || strings.Trim(u.Path, "/") != "" {
+		if e != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.ForceQuery || strings.Contains(s, "#") || u.RawPath != "" || u.Path != "" && u.Path != "/" {
 			return errors.New("public URLs must be HTTP(S) origins")
 		}
 		h := u.Hostname()
-		if h == "0.0.0.0" || h == "::" || h == "*" {
+		ip := net.ParseIP(strings.SplitN(h, "%", 2)[0])
+		if h == "" || h == "*" || ip != nil && ip.IsUnspecified() {
 			return errors.New("public URL must be PS4-reachable, not a wildcard")
+		}
+		if strings.HasPrefix(u.Host, "[") && ip == nil {
+			return errors.New("invalid IPv6 public URL host")
+		}
+		if p := u.Port(); p != "" {
+			n, err := strconv.Atoi(p)
+			if err != nil || n < 1 || n > 65535 {
+				return errors.New("public URL port must be 1–65535")
+			}
 		}
 	}
 	if c.DataDir == "" || c.Scan.IntervalMinutes < 0 || c.IGDB.IntervalMS < 0 || c.IGDB.PositiveDays < 0 || c.IGDB.NegativeDays < 0 {
 		return errors.New("invalid data directory or negative interval")
+	}
+	const maxDuration = time.Duration(1<<63 - 1)
+	if int64(c.Scan.IntervalMinutes) > int64(maxDuration/time.Minute) || int64(c.IGDB.IntervalMS) > int64(maxDuration/time.Millisecond) || int64(c.IGDB.PositiveDays) > int64(maxDuration/(24*time.Hour)) || int64(c.IGDB.NegativeDays) > int64(maxDuration/(24*time.Hour)) {
+		return errors.New("scan or metadata interval exceeds the supported duration")
 	}
 	seen := map[string]bool{}
 	for _, m := range c.Mappings {

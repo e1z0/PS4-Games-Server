@@ -24,7 +24,7 @@ Two named volumes persist configuration and data. The default runtime UID/GID is
 
 `make down` stops containers and retains volumes. Avoid `docker compose down -v` unless deliberately deleting settings and generated data. Restarting during incomplete setup creates a new token; finishing setup invalidates the token immediately. For unattended deployment, set administrator environment seeds and the public URL before the very first launch. Already persisted fields, including empty strings, win over seeds; use web settings or edit the JSON while stopped for later changes.
 
-Use `docker compose exec ps4-server ps4-server health -config /config/config.json` for health. `make upload VERSION=... TAG=...` publishes both supported Linux architectures; authenticate with `docker login` externally. `STABLE=1` explicitly adds `latest`.
+Use `docker compose exec ps4-server ps4-server health -config /config/config.json` for health. `make upload VERSION=... TAG=...` publishes both supported Linux architectures using an automatically created/reused Buildx builder; authenticate with `docker login` externally. `STABLE=1` explicitly adds `latest`.
 
 ## Administration and recovery
 
@@ -37,3 +37,9 @@ An optional separate download listener requires both `download_listen` and a PS4
 Custom covers: place a valid PNG/JPEG at `data/covers/<category>/<TitleID>.png` (or `.jpg`/`.jpeg`). DLC uses the complete Content ID in place of Title ID. Missing identifiers use a deterministic key; inspect the generated cover URL. Valid custom covers are retained; missing/corrupt covers are repaired from plaintext package icons. A fallback is served when no valid image exists. Background accepts a server-native PNG/JPEG path. Encrypted entries are reported without decryption.
 
 Generated cache files are internal. If a cache file becomes malformed, stop the service, move it aside, and scan again; never delete your custom covers as part of cache repair. No console has been used to validate this implementation yet.
+
+The wizard retains entered fields when going Back and validates folder access before proceeding. On Windows, the picker starts in the server's working directory and lists available drives. Changing listeners during setup also requires a restart; the wizard and administration screen show this notice. Copy the canonical `/feeds/<category>` URLs from the library; legacy short category aliases remain supported.
+
+Stop a running writer before using one-shot scan or password-reset against the same configuration/data. The application enforces this with OS file locks and automatically releases them after process exit; empty `.lock` sidecar files are expected. Mapping edits saved during a scan take effect in the next published scan, keeping currently published package URLs available until then.
+
+The FPKGi configuration clipboard helper lowercases client category labels and checks the client's limit of 32 sources including games, 32 characters per label, distinct labels ignoring case, and the reserved ps5 label. Feed names remain unchanged. If a collection exceeds those client limits, individual feed URLs can be copied into selected, shorter client category labels.

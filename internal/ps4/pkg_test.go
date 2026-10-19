@@ -98,3 +98,13 @@ func TestSFOTruncationAndLargeEntry(t *testing.T) {
 		t.Fatal("oversized icon was read", status, e)
 	}
 }
+
+func TestReportsEncryptedNonMetadataEntries(t *testing.T) {
+	b := testpkg.Build(nil)
+	binary.BigEndian.PutUint32(b[0x1000:], 0x9999)
+	binary.BigEndian.PutUint32(b[0x1008:], 0x80000000)
+	p, err := Parse(bytes.NewReader(b), int64(len(b)))
+	if err != nil || p.EncryptedEntries != 1 || len(p.Warnings) != 1 {
+		t.Fatal("encrypted entry not reported", p, err)
+	}
+}

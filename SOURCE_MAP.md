@@ -4,6 +4,7 @@
 See [architecture](docs/architecture.md) for entrypoints, routes, tests and data flows.
 
 - `.dockerignore`
+- `.gitattributes`
 - `.github/workflows/ci.yml`
 - `.gitignore`
 - `CHANGELOG.md`
@@ -18,6 +19,7 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `cmd/ps4-server/main_test.go`
 - `compose.yaml`
 - `config.example.json`
+- `docs/acceptance.md`
 - `docs/architecture.md`
 - `docs/configuration.md`
 - `docs/parity.md`
@@ -41,6 +43,11 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `internal/server/ui/fallback.svg`
 - `internal/server/ui/index.html`
 - `internal/server/ui/style.css`
+- `internal/storage/lock.go`
+- `internal/storage/lock_other.go`
+- `internal/storage/lock_test.go`
+- `internal/storage/lock_unix.go`
+- `internal/storage/lock_windows.go`
 - `internal/storage/replace_unix.go`
 - `internal/storage/replace_windows.go`
 - `internal/storage/storage.go`

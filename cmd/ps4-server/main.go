@@ -17,6 +17,7 @@ import (
 	"ps4server/internal/metadata"
 	"ps4server/internal/scanner"
 	"ps4server/internal/server"
+	"ps4server/internal/storage"
 	"runtime"
 	"strings"
 	"syscall"
@@ -86,6 +87,13 @@ func run(args []string, in io.Reader, out io.Writer) error {
 	default:
 		return fmt.Errorf("unknown command %q; run ps4-server help", command)
 	}
+	if command != "validate" {
+		lock, err := storage.Acquire(*path + ".lock")
+		if err != nil {
+			return err
+		}
+		defer lock.Close()
+	}
 	if command == "init" {
 		if _, e := os.Stat(*path); e == nil {
 			return errors.New("configuration already exists")
@@ -130,6 +138,11 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		if !c.Configured {
 			return errors.New("complete setup or seed administrator credentials and a public URL first")
 		}
+		dataLock, err := storage.Acquire(filepath.Join(c.DataDir, ".writer.lock"))
+		if err != nil {
+			return err
+		}
+		defer dataLock.Close()
 		engine, e := scanner.New(c)
 		if e != nil {
 			return e
@@ -150,6 +163,7 @@ func run(args []string, in io.Reader, out io.Writer) error {
 	if e != nil {
 		return e
 	}
+	defer app.Close()
 	listener, e := net.Listen("tcp", c.Listen)
 	if e != nil {
 		return e
