@@ -2,6 +2,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/subtle"
 	"embed"
@@ -211,10 +212,12 @@ func (a *App) asset(w http.ResponseWriter, r *http.Request, name string) {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 	case ".css":
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	case ".png":
+		w.Header().Set("Content-Type", "image/png")
 	case ".svg":
 		w.Header().Set("Content-Type", "image/svg+xml")
 	}
-	w.Write(b)
+	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(b))
 }
 func (a *App) auth(r *http.Request) (session, bool) {
 	cookie, e := r.Cookie("ps4_session")
@@ -622,8 +625,8 @@ func (a *App) download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rel := strings.TrimPrefix(p, "/covers/")
-	if rel == "fallback.svg" {
-		a.asset(w, r, "fallback.svg")
+	if rel == "fallback.svg" || rel == "fallback.png" {
+		a.asset(w, r, rel)
 		return
 	}
 	if ext := strings.ToLower(filepath.Ext(rel)); ext != ".png" && ext != ".jpg" && ext != ".jpeg" {

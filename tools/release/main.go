@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"time"
 )
 
 func main() {
@@ -83,6 +84,7 @@ func writeZip(w io.Writer, files map[string]string, binary string) error {
 			return e
 		}
 		h := &zip.FileHeader{Name: name, Method: zip.Deflate}
+		h.SetModTime(time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC))
 		h.SetMode(0644)
 		if name == binary {
 			h.SetMode(0755)

@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"ps4server/internal/config"
+	"ps4server/internal/metadata"
+	"ps4server/internal/ps4"
 	"ps4server/internal/scanner"
 	"ps4server/internal/storage"
 	"ps4server/internal/testpkg"
@@ -170,7 +172,7 @@ func TestOriginAndEmbeddedAssets(t *testing.T) {
 	c := config.Defaults()
 	c.DataDir = t.TempDir()
 	a, _ := New(context.Background(), filepath.Join(t.TempDir(), "c.json"), c)
-	for _, p := range []string{"/app.js", "/style.css", "/covers/fallback.svg"} {
+	for _, p := range []string{"/app.js", "/style.css", "/covers/fallback.svg", "/covers/fallback.png"} {
 		w := request(t, a.Handler(false), "GET", p, nil, nil, "")
 		if w.Code != 200 {
 			t.Fatal(p, w.Code)
@@ -182,5 +184,38 @@ func TestOriginAndEmbeddedAssets(t *testing.T) {
 	a.Handler(false).ServeHTTP(w, r)
 	if w.Code != 403 {
 		t.Fatal("origin accepted")
+	}
+}
+
+func TestOfflineRichMetadataRestoredWithoutScan(t *testing.T) {
+	c := config.Defaults()
+	c.DataDir = t.TempDir()
+	c.PublicURL = "http://nas:8080"
+	c.Scan.Startup = false
+	c.Mappings = []config.Mapping{{ID: "main", Path: t.TempDir(), Category: "games", Enabled: true}}
+	entry := scanner.Cached{Mapping: "main", Root: c.Mappings[0].Path, Relative: "game.pkg", Category: "games", Package: ps4.Package{TitleID: "CUSA12345", Title: "Synthetic Game", Category: "gd"}}
+	storage.JSON(filepath.Join(c.DataDir, "scan-cache.json"), scanner.State{Version: 1, Entries: []scanner.Cached{entry}})
+	storage.JSON(filepath.Join(c.DataDir, "metadata-cache.json"), metadata.Cache{Version: 1, Titles: map[string]metadata.Entry{"CUSA12345": {Found: true, Data: metadata.Object{"schema_version": 1, "summary": "Offline summary"}}}})
+	a, e := New(context.Background(), filepath.Join(t.TempDir(), "c.json"), c)
+	if e != nil {
+		t.Fatal(e)
+	}
+	w := request(t, a.Handler(false), "GET", "/api/v1/library", nil, nil, "")
+	if !strings.Contains(w.Body.String(), "Offline summary") || a.Engine().Status().Running {
+		t.Fatal("cached rich details not restored", w.Body.String())
+	}
+}
+
+func TestRasterFallbackForPS4(t *testing.T) {
+	c := config.Defaults()
+	c.DataDir = t.TempDir()
+	a, _ := New(context.Background(), filepath.Join(t.TempDir(), "c.json"), c)
+	w := request(t, a.Handler(false), "GET", "/covers/fallback.png", nil, nil, "")
+	if w.Code != 200 || w.Header().Get("Content-Type") != "image/png" || !ps4.ValidImage(w.Body.Bytes()) {
+		t.Fatal("fallback is not a valid PS4-decodable raster image")
+	}
+	w = request(t, a.Handler(false), "HEAD", "/covers/fallback.png", nil, nil, "")
+	if w.Code != 200 || w.Body.Len() != 0 || w.Header().Get("Content-Length") == "" {
+		t.Fatal("fallback HEAD unsupported")
 	}
 }

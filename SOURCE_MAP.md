@@ -37,11 +37,15 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `internal/server/server.go`
 - `internal/server/server_test.go`
 - `internal/server/ui/app.js`
+- `internal/server/ui/fallback.png`
 - `internal/server/ui/fallback.svg`
 - `internal/server/ui/index.html`
 - `internal/server/ui/style.css`
+- `internal/storage/replace_unix.go`
+- `internal/storage/replace_windows.go`
 - `internal/storage/storage.go`
 - `internal/storage/storage_test.go`
 - `internal/testpkg/fixture.go`
+- `tools/assets/main.go`
 - `tools/release/main.go`
 - `tools/source-map.go`

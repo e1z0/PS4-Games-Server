@@ -4,6 +4,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -34,7 +35,7 @@ func TestSeedPresenceAndPassword(t *testing.T) {
 		t.Fatal("plaintext persisted")
 	}
 	s, _ := os.Stat(p)
-	if s.Mode().Perm() != 0600 {
+	if runtime.GOOS != "windows" && s.Mode().Perm() != 0600 {
 		t.Fatal(s.Mode())
 	}
 }
@@ -48,5 +49,16 @@ func TestValidation(t *testing.T) {
 	t.Setenv("PS4_SCAN_STARTUP", "banana")
 	if _, e := Load(p, true); e == nil {
 		t.Fatal("bad env accepted")
+	}
+}
+
+func TestInvalidSeedStillRejectedWhenPresent(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.json")
+	if err := Save(p, Defaults()); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PS4_PUBLIC_URL", "http://0.0.0.0:8080")
+	if _, err := Load(p, true); err == nil {
+		t.Fatal("explicit invalid environment value ignored")
 	}
 }

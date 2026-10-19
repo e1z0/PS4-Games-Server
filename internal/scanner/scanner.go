@@ -371,7 +371,7 @@ func CoverKey(v Cached) string {
 	return k
 }
 func coverRelative(v Cached) string { return v.Category + "/" + CoverKey(v) }
-func coverPath(c config.Config, v Cached) string {
+func ownCover(c config.Config, v Cached) string {
 	base := filepath.Join(c.CoversDir(), filepath.FromSlash(coverRelative(v)))
 	for _, ext := range []string{".png", ".jpg", ".jpeg"} {
 		p := base + ext
@@ -381,8 +381,39 @@ func coverPath(c config.Config, v Cached) string {
 	}
 	return base + ".png"
 }
+
+// Covers can be shared by title across categories; DLC first uses its distinct content ID.
+func coverPath(c config.Config, v Cached) string {
+	own := ownCover(c, v)
+	if ps4.ValidImageFile(own) {
+		return own
+	}
+	categories := []string{"games", "apps", "updates", "DLC", "demos", "homebrew", "emulators", "themes", "PS1", "PS2", "PSP"}
+	for _, m := range c.Mappings {
+		categories = append(categories, m.Category)
+	}
+	sort.Strings(categories)
+	keys := []string{CoverKey(v)}
+	if ps4.Classify(v.Package.Category, v.Category) == "dlc" && config.SafeName.MatchString(v.Package.TitleID) {
+		keys = append(keys, v.Package.TitleID)
+	}
+	for _, key := range keys {
+		for _, cat := range categories {
+			if !config.SafeName.MatchString(cat) {
+				continue
+			}
+			for _, ext := range []string{".png", ".jpg", ".jpeg"} {
+				p := filepath.Join(c.CoversDir(), cat, key+ext)
+				if ps4.ValidImageFile(p) {
+					return p
+				}
+			}
+		}
+	}
+	return own
+}
 func (e *Engine) cover(c config.Config, v Cached, pkg string) {
-	status, err := ps4.ExtractIcon(pkg, v.Package.Icon, coverPath(c, v))
+	status, err := ps4.ExtractIcon(pkg, v.Package.Icon, ownCover(c, v))
 	if err != nil {
 		e.issue("cover repair failed: " + v.Relative)
 	} else if status == "invalid" {
@@ -390,7 +421,7 @@ func (e *Engine) cover(c config.Config, v Cached, pkg string) {
 	}
 }
 func RecordFor(c config.Config, v Cached, meta map[string]map[string]any) Record {
-	cover := c.Downloads() + "/covers/fallback.svg"
+	cover := c.Downloads() + "/covers/fallback.png"
 	if p := coverPath(c, v); ps4.ValidImageFile(p) {
 		rel, _ := filepath.Rel(c.CoversDir(), p)
 		cover = c.Downloads() + "/covers/" + Escape(rel)

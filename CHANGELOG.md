@@ -8,3 +8,6 @@
 - Added embedded library, token-gated setup, authenticated administration and range-capable downloads.
 - Added copyable FPKGi client configuration, persistent settings, offline metadata restore and CLI lifecycle commands.
 - Added six-platform archive creation, Docker/Compose delivery and native CI checks.
+- Hardened Windows atomic replacement, repaired truncated images, restored cross-category cover sharing and rejected malformed IGDB responses without negative caching.
+- Verified browser setup/admin/library, non-root Compose deployment, restart persistence, HTTP range/HEAD and six release cross-builds.
+- Serve an embedded PNG fallback to PS4 clients, alongside the browser SVG fallback.

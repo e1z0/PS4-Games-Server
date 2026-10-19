@@ -44,7 +44,7 @@ Environment variables seed missing JSON fields once. Persistent web edits take p
 
 ## Develop and distribute
 
-Go 1.24+ is sufficient for native development; CI and Docker use Go 1.26. `make` builds `bin/ps4-server`. `make check` runs formatting verification, vet, tests, race tests and source-map checks. `make release VERSION=0.1.0` produces six self-contained archives for Linux, macOS and Windows on amd64/arm64 using Go alone. macOS executables are unsigned.
+Go 1.24+ is sufficient for native development; CI and Docker use Go 1.26. `make` builds `bin/ps4-server`. `make check` runs formatting verification, vet, tests, race tests and source-map checks. Race checks require the host C compiler used by Go’s race detector; normal CGO-free builds and tests need only Go. `make release VERSION=0.1.0` produces six self-contained archives for Linux, macOS and Windows on amd64/arm64 using Go alone. macOS executables are unsigned.
 
 Other targets: `run`, `test`, `fmt`, `source-map`, `docker`, `deploy`, `logs`, `down`. `make upload VERSION=0.1.0 TAG=0.1.0` publishes Linux amd64/arm64 images to `nulldevil/ps4-games-server` with externally supplied Docker registry credentials. `STABLE=1` additionally publishes `latest`; ordinary uploads never do. Upload requires a configured Docker Buildx builder with cross-platform support.
 

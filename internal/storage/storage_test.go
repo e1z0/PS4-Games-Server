@@ -28,7 +28,7 @@ func TestAtomicConcurrentReaders(t *testing.T) {
 			case <-done:
 				return
 			default:
-				v, e := os.ReadFile(p)
+				v, e := Bytes(p)
 				if e != nil || !bytes.Equal(v, a) && !bytes.Equal(v, b) {
 					select {
 					case errs <- "reader observed partial atomic write":

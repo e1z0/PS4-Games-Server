@@ -28,7 +28,7 @@
 | GET `/api/v1/library`, `/api/v1/feeds` | Public catalogs / configured feed URLs |
 | GET/HEAD `/<category>`, `/<category>.json`, `/feeds/<category>` | Public FPKGi feeds and legacy aliases |
 | GET/HEAD `/pkg/<mapping-id>/<escaped-relative-path>` | Public package; must appear in snapshot and match an enabled configured root |
-| GET/HEAD `/covers/<relative-image-path>`, `/background` | Public validated image files; built-in fallback at `/covers/fallback.svg` |
+| GET/HEAD `/covers/<relative-image-path>`, `/background` | Public validated image files; built-in fallback at `/covers/fallback.png` |
 | POST `/api/v1/setup/open` | Secret setup token → setup session and CSRF token |
 | PUT `/api/v1/setup` | Setup session + CSRF; validates/saves then invalidates setup token and sessions |
 | POST `/api/v1/auth/login` | Throttled login → HttpOnly SameSite session + CSRF token |
@@ -53,3 +53,5 @@ Metadata selects PS4 base games for matching, shares results by Title ID across 
 Catalog URLs use explicitly configured origins and escaped nested relative segments. Requests whitelist package snapshot entries, check containment, then use Go os.OpenRoot to prevent symlink escapes during open. HTTP ServeContent provides efficient streaming, HEAD, conditional dates and ranges without loading packages into memory. Download paths are never inferred from arbitrary user filesystem input.
 
 See SOURCE_MAP.md for the generated file inventory, docs/validation.md for actual check results and docs/parity.md for compatibility details.
+
+`tools/assets` regenerates the embedded fallback PNG using only Go. Feed fallback URLs use PNG so native PS4 raster decoders can load them; the browser can also use the SVG fallback. Embedded assets use ServeContent for HEAD and ranges.

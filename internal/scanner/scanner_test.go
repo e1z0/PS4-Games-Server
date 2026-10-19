@@ -2,8 +2,12 @@
 package scanner
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"ps4server/internal/config"
@@ -186,5 +190,45 @@ func TestChangingFileAndActiveCancellation(t *testing.T) {
 	}
 	if !e.Status().Cancelled || string(e.MarshalSnapshot()) != before {
 		t.Fatal("cancelled scan published", e.Status())
+	}
+}
+
+func TestCustomCoverSharingAndCorruptImageRepair(t *testing.T) {
+	c, _ := fixture(t)
+	e, _ := New(c)
+	e.Run(context.Background(), c, false)
+	v := e.Snapshot()[0]
+	own := ownCover(c, v)
+	valid, err := os.ReadFile(own)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(valid) < 34 {
+		t.Fatal("fixture PNG too short")
+	}
+	os.WriteFile(own, valid[:33], 0600)
+	if ps4.ValidImageFile(own) {
+		t.Fatal("truncated PNG treated as valid")
+	}
+	e.Run(context.Background(), c, false)
+	repaired, _ := os.ReadFile(own)
+	if !bytes.Equal(valid, repaired) {
+		t.Fatal("PNG not repaired")
+	}
+	im := image.NewRGBA(image.Rect(0, 0, 3, 3))
+	im.Set(1, 1, color.RGBA{R: 255, A: 255})
+	var encoded bytes.Buffer
+	png.Encode(&encoded, im)
+	custom := encoded.Bytes()
+	os.WriteFile(own, custom, 0600)
+	e.Run(context.Background(), c, true)
+	retained, _ := os.ReadFile(own)
+	if !bytes.Equal(custom, retained) {
+		t.Fatal("custom cover overwritten")
+	}
+	v.Category = "updates"
+	v.Package.Category = "gp"
+	if coverPath(c, v) != own {
+		t.Fatal("base cover not shared with update")
 	}
 }

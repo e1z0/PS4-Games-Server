@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 
 // Write replaces a file atomically and preserves its timestamp when unchanged.
 func Write(path string, data []byte, mode fs.FileMode) error {
-	old, err := os.ReadFile(path)
+	old, err := Bytes(path)
 	if err == nil && bytes.Equal(old, data) {
 		return os.Chmod(path, mode)
 	}
@@ -41,7 +42,7 @@ func Write(path string, data []byte, mode fs.FileMode) error {
 	if err != nil {
 		return err
 	}
-	return os.Rename(f.Name(), path)
+	return replaceFile(f.Name(), path)
 }
 func JSON(path string, v any) error {
 	b, e := json.MarshalIndent(v, "", "  ")
@@ -51,7 +52,7 @@ func JSON(path string, v any) error {
 	return Write(path, append(b, '\n'), 0600)
 }
 func Read(path string, v any) error {
-	b, e := os.ReadFile(path)
+	b, e := Bytes(path)
 	if e != nil {
 		return e
 	}
@@ -79,4 +80,19 @@ func Resolve(root, rel string) (string, error) {
 		return "", fs.ErrPermission
 	}
 	return p, nil
+}
+
+// Bytes opens relative to a directory handle; Windows handles permit atomic replacement.
+func Bytes(path string) ([]byte, error) {
+	root, err := os.OpenRoot(filepath.Dir(path))
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	f, err := root.Open(filepath.Base(path))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(f)
 }

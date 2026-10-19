@@ -149,3 +149,40 @@ func TestMapRich(t *testing.T) {
 		t.Fatal("matching")
 	}
 }
+
+func TestInvalidResponseAndUpdateOnlyDoNotNegativeCache(t *testing.T) {
+	var calls atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			json.NewEncoder(w).Encode(Object{"access_token": "token", "expires_in": 3600})
+			return
+		}
+		calls.Add(1)
+		w.Write([]byte("null"))
+	}))
+	defer ts.Close()
+	s := New()
+	s.TokenURL = ts.URL + "/token"
+	s.GamesURL = ts.URL + "/games"
+	c := config.Defaults()
+	c.DataDir = t.TempDir()
+	c.IGDB.Enabled = true
+	c.IGDB.ClientID = "id"
+	c.IGDB.ClientSecret = "secret"
+	c.IGDB.IntervalMS = 0
+	entries := []scanner.Cached{{Category: "updates", Package: ps4.Package{TitleID: "CUSA12345", Title: "Patch", Category: "gp"}}}
+	s.Enrich(context.Background(), c, entries)
+	if calls.Load() != 0 {
+		t.Fatal("update queried")
+	}
+	entries[0].Package.Category = "gd"
+	_, warnings, e := s.Enrich(context.Background(), c, entries)
+	if e != nil || len(warnings) == 0 {
+		t.Fatal(e, warnings)
+	}
+	cache := Cache{}
+	storage.Read(filepath.Join(c.DataDir, "metadata-cache.json"), &cache)
+	if len(cache.Titles) != 0 {
+		t.Fatal("invalid response cached negatively")
+	}
+}

@@ -218,7 +218,11 @@ func ValidImage(b []byte) bool {
 		return false
 	}
 	c, _, e := image.DecodeConfig(bytes.NewReader(b))
-	return e == nil && c.Width > 0 && c.Height > 0 && c.Width <= 16384 && c.Height <= 16384
+	if e != nil || c.Width <= 0 || c.Height <= 0 || c.Width > 16384 || c.Height > 16384 || int64(c.Width)*int64(c.Height) > 16<<20 {
+		return false
+	}
+	_, _, e = image.Decode(bytes.NewReader(b))
+	return e == nil
 }
 func ValidImageFile(path string) bool {
 	s, e := os.Stat(path)

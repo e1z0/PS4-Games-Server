@@ -163,6 +163,9 @@ func (s *Service) request(ctx context.Context, c config.IGDB, body string) ([]Ob
 		var out []Object
 		e = json.NewDecoder(io.LimitReader(res.Body, 8<<20)).Decode(&out)
 		res.Body.Close()
+		if e == nil && out == nil {
+			e = errors.New("invalid IGDB response: expected array")
+		}
 		return out, e
 	}
 	return nil, errors.New("IGDB retry limit reached")
