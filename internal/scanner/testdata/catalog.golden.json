@@ -1,0 +1,17 @@
+{
+  "DATA": {
+    "http://nas:8080/pkg/main/nested%20%E7%8C%AB/game%20%231.pkg": {
+      "region": "USA",
+      "title_id": "CUSA12345",
+      "content_id": "UP0000-CUSA12345_00-SYNTHETIC000000",
+      "package_type": "game",
+      "package_category": "gd",
+      "name": "Synthetic Game",
+      "version": "01.23",
+      "release": "10-19-2026",
+      "size": "5368709120",
+      "min_fw": "11.02",
+      "cover_url": "http://nas:8080/covers/fallback.svg"
+    }
+  }
+}

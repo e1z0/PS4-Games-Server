@@ -77,6 +77,7 @@ type Engine struct {
 	logs     []string
 	metadata map[string]map[string]any
 	Enricher Enricher
+	inspect  func(string) (ps4.Package, error)
 }
 
 func New(c config.Config) (*Engine, error) {
@@ -88,7 +89,7 @@ func New(c config.Config) (*Engine, error) {
 	if s.Version != 1 {
 		return nil, errors.New("unsupported scan cache version")
 	}
-	return &Engine{state: s, metadata: map[string]map[string]any{}}, nil
+	return &Engine{state: s, metadata: map[string]map[string]any{}, inspect: ps4.Inspect}, nil
 }
 func (e *Engine) Log(s string) {
 	e.mu.Lock()
@@ -263,7 +264,7 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 				v.Package = prev.Package
 				v.Release = prev.Release
 			} else {
-				v.Package, err = ps4.Inspect(canonical)
+				v.Package, err = e.inspect(canonical)
 			}
 			e.mu.Lock()
 			e.job.Visited++

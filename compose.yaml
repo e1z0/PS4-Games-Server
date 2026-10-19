@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: GPL-2.0-only
+services:
+  ps4-server:
+    image: ${IMAGE:-nulldevil/ps4-games-server}:${TAG:-0.1.0-dev}
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-0.1.0-dev}
+    user: "${PUID:-10001}:${PGID:-10001}"
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-8080}:8080"
+    environment:
+      PS4_DATA_DIR: /data
+      PS4_LISTEN: :8080
+      # These are seeds only. Existing JSON settings win, including false/zero/empty values.
+      # Blank values below do not configure credentials. Omit them to use the wizard.
+      PS4_PUBLIC_URL: ${PS4_PUBLIC_URL:-}
+      PS4_ADMIN_USERNAME: ${PS4_ADMIN_USERNAME:-}
+      PS4_ADMIN_PASSWORD: ${PS4_ADMIN_PASSWORD:-}
+      PS4_MAPPINGS: ${PS4_MAPPINGS:-[]}
+      PS4_SCAN_STARTUP: ${PS4_SCAN_STARTUP:-true}
+      PS4_SCAN_INTERVAL_MINUTES: ${PS4_SCAN_INTERVAL_MINUTES:-0}
+      PS4_IGDB_ENABLED: ${PS4_IGDB_ENABLED:-false}
+      PS4_IGDB_CLIENT_ID: ${PS4_IGDB_CLIENT_ID:-}
+      PS4_IGDB_CLIENT_SECRET: ${PS4_IGDB_CLIENT_SECRET:-}
+    volumes:
+      - config:/config
+      - data:/data
+      - type: bind
+        source: ${PACKAGES_PATH:-./runtime/packages}
+        target: /packages
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: unless-stopped
+volumes:
+  config:
+  data:

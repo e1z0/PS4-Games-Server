@@ -4,6 +4,8 @@ package ps4
 import (
 	"bytes"
 	"encoding/binary"
+	"os"
+	"path/filepath"
 	"ps4server/internal/testpkg"
 	"testing"
 )
@@ -58,4 +60,41 @@ func TestFirmwareAndTypes(t *testing.T) {
 func FuzzParse(f *testing.F) {
 	f.Add(testpkg.Build(nil))
 	f.Fuzz(func(t *testing.T, b []byte) { Parse(bytes.NewReader(b), int64(len(b))); ParseSFO(b) })
+}
+
+func TestSFOTruncationAndLargeEntry(t *testing.T) {
+	b := testpkg.Build(nil)
+	entryOff := int(binary.BigEndian.Uint32(b[0x1010:]))
+	sz := int(binary.BigEndian.Uint32(b[0x1014:]))
+	sfo := b[entryOff : entryOff+sz]
+	for n := 0; n < 20; n++ {
+		if _, e := ParseSFO(sfo[:n]); e == nil {
+			t.Fatal("short SFO accepted")
+		}
+	}
+	copySFO := append([]byte{}, sfo...)
+	binary.LittleEndian.PutUint32(copySFO[24:], 0xffffffff)
+	if _, e := ParseSFO(copySFO); e == nil {
+		t.Fatal("SFO overflow accepted")
+	}
+	path := filepath.Join(t.TempDir(), "large.pkg")
+	binary.BigEndian.PutUint32(b[0x1014:], 65<<20)
+	binary.BigEndian.PutUint32(b[0x1034:], 33<<20)
+	if err := os.WriteFile(path, b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := os.OpenFile(path, os.O_WRONLY, 0600)
+	if e := f.Truncate(80 << 20); e != nil {
+		f.Close()
+		t.Skip(e)
+	}
+	f.Close()
+	p, e := Inspect(path)
+	if e != nil || len(p.Warnings) == 0 {
+		t.Fatal(p, e)
+	}
+	status, e := ExtractIcon(path, p.Icon, path+".png")
+	if status != "invalid" || e == nil {
+		t.Fatal("oversized icon was read", status, e)
+	}
 }

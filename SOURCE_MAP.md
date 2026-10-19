@@ -3,14 +3,26 @@
 
 See [architecture](docs/architecture.md) for entrypoints, routes, tests and data flows.
 
+- `.dockerignore`
+- `.github/workflows/ci.yml`
 - `.gitignore`
 - `CHANGELOG.md`
+- `Dockerfile`
 - `LICENSE`
+- `Makefile`
 - `PROGRESS.md`
+- `README.md`
+- `THIRD_PARTY_NOTICES.md`
 - `TODO.md`
 - `cmd/ps4-server/main.go`
 - `cmd/ps4-server/main_test.go`
+- `compose.yaml`
+- `config.example.json`
 - `docs/architecture.md`
+- `docs/configuration.md`
+- `docs/parity.md`
+- `docs/setup.md`
+- `docs/validation.md`
 - `go.mod`
 - `internal/config/config.go`
 - `internal/config/config_test.go`
@@ -21,6 +33,7 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `internal/ps4/pkg_test.go`
 - `internal/scanner/scanner.go`
 - `internal/scanner/scanner_test.go`
+- `internal/scanner/testdata/catalog.golden.json`
 - `internal/server/server.go`
 - `internal/server/server_test.go`
 - `internal/server/ui/app.js`
@@ -28,5 +41,7 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `internal/server/ui/index.html`
 - `internal/server/ui/style.css`
 - `internal/storage/storage.go`
+- `internal/storage/storage_test.go`
 - `internal/testpkg/fixture.go`
+- `tools/release/main.go`
 - `tools/source-map.go`

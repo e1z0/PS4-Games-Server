@@ -206,16 +206,9 @@ func Classify(category, folder string) string {
 	return "unknown"
 }
 func Region(cid string) string {
-	if len(cid) > 0 {
-		switch cid[0] {
-		case 'U':
-			return "USA"
-		case 'E':
-			return "EUR"
-		case 'J':
-			return "JAP"
-		case 'H':
-			return "ASIA"
+	for prefix, region := range map[string]string{"UP": "USA", "EP": "EUR", "JP": "JAP"} {
+		if strings.HasPrefix(cid, prefix) {
+			return region
 		}
 	}
 	return "UNK"

@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-2.0-only
+name: Native checks
+on: [push, pull_request]
+jobs:
+  native:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go test -race ./...
+      - run: go run ./tools/source-map.go -check
+  release-builds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - run: make check
+      - run: make release VERSION=ci
+      - run: docker build -t ps4-server:ci .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-archives
+          path: dist/*

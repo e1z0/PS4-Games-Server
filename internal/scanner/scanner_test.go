@@ -3,9 +3,11 @@ package scanner
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"ps4server/internal/config"
+	"ps4server/internal/ps4"
 	"ps4server/internal/testpkg"
 	"strings"
 	"testing"
@@ -117,5 +119,72 @@ func TestLargeFileAndDLC(t *testing.T) {
 	v.Package.ContentID = "UP0000-CUSA12345_00-TWO"
 	if a == CoverKey(v) {
 		t.Fatal("DLC cover collision")
+	}
+}
+
+func TestCatalogGolden(t *testing.T) {
+	c := config.Defaults()
+	c.PublicURL = "http://nas:8080"
+	c.DataDir = t.TempDir()
+	c.Mappings = []config.Mapping{{ID: "main", Category: "games", Enabled: true}}
+	fw := "11.02"
+	v := Cached{Mapping: "main", Relative: "nested 猫/game #1.pkg", Category: "games", Size: 5368709120, Release: "10-19-2026", Package: ps4.Package{TitleID: "CUSA12345", ContentID: "UP0000-CUSA12345_00-SYNTHETIC000000", Title: "Synthetic Game", Category: "gd", Version: "01.23", Firmware: &fw}}
+	b, err := json.MarshalIndent(Catalogs(c, []Cached{v}, nil)["games"], "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gold, e := os.ReadFile("testdata/catalog.golden.json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if string(append(b, '\n')) != string(gold) {
+		t.Fatalf("catalog mismatch:\n%s", b)
+	}
+}
+
+func TestChangingFileAndActiveCancellation(t *testing.T) {
+	c, p := fixture(t)
+	e, _ := New(c)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	before := string(e.MarshalSnapshot())
+	entered, release := make(chan struct{}), make(chan struct{})
+	e.inspect = func(path string) (ps4.Package, error) {
+		parsed, err := ps4.Inspect(path)
+		close(entered)
+		<-release
+		return parsed, err
+	}
+	if err := e.Start(context.Background(), c, true); err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	if err := e.Start(context.Background(), c, false); err == nil {
+		t.Fatal("active overlap allowed")
+	}
+	os.WriteFile(p, testpkg.Build(map[string]any{"TITLE": "Changed during scan"}), 0600)
+	close(release)
+	deadline := time.Now().Add(3 * time.Second)
+	for e.Status().Running && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if string(e.MarshalSnapshot()) != before || len(e.Status().Errors) == 0 {
+		t.Fatal("unstable package published", e.Status())
+	}
+	entered, release = make(chan struct{}), make(chan struct{})
+	e.inspect = func(path string) (ps4.Package, error) { close(entered); <-release; return ps4.Inspect(path) }
+	if err := e.Start(context.Background(), c, true); err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	e.Cancel()
+	close(release)
+	deadline = time.Now().Add(3 * time.Second)
+	for e.Status().Running && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if !e.Status().Cancelled || string(e.MarshalSnapshot()) != before {
+		t.Fatal("cancelled scan published", e.Status())
 	}
 }

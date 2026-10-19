@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "configured": false,
+  "listen": ":8080",
+  "download_listen": "",
+  "public_url": "",
+  "download_url": "",
+  "data_dir": "data",
+  "background": "",
+  "mappings": [],
+  "scan": { "startup": true, "interval_minutes": 0 },
+  "admin": { "username": "" },
+  "igdb": {
+    "enabled": false,
+    "client_id": "",
+    "client_secret": "",
+    "positive_days": 30,
+    "negative_days": 7,
+    "interval_ms": 300
+  }
+}
