@@ -1,0 +1,6 @@
+/bin/
+/dist/
+/runtime/
+/config.json
+/data/
+*.test
