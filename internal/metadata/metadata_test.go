@@ -74,7 +74,13 @@ func TestCacheRenewalOfflineOverridesAndRepair(t *testing.T) {
 	c.IGDB.ClientSecret = "secret"
 	c.IGDB.IntervalMS = 0
 	entries := []scanner.Cached{{Category: "games", Package: ps4.Package{TitleID: "CUSA12345", Title: "Synthetic Game", Category: "gd"}}, {Category: "updates", Package: ps4.Package{TitleID: "CUSA12345", Title: "Update", Category: "gp"}}}
-	out, warn, e := s.Enrich(context.Background(), c, entries)
+	progress := [][2]int{}
+	out, warn, e := s.EnrichWithProgress(context.Background(), c, entries, func(done, total int, current string) {
+		progress = append(progress, [2]int{done, total})
+	})
+	if len(progress) != 2 || progress[0] != [2]int{0, 1} || progress[1] != [2]int{1, 1} {
+		t.Fatal("title-sharing progress is incorrect", progress)
+	}
 	if e != nil || len(warn) > 0 || out["CUSA12345"]["summary"] != "Rich summary" || tokens.Load() != 2 || images.Load() != 1 {
 		t.Fatal(out, warn, e, tokens.Load(), queries.Load())
 	}

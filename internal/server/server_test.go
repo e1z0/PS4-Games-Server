@@ -505,7 +505,7 @@ func TestNewUnreadableMappingRejected(t *testing.T) {
 	c.PublicURL = "http://nas:8080"
 	c.Mappings = []config.Mapping{{ID: "main", Path: dir, Category: "games", Enabled: true}}
 	w := request(t, a.Handler(false), "PUT", "/api/v1/setup", c, cookie, token)
-	if w.Code != 400 || !strings.Contains(w.Body.String(), "mapping directory unavailable") {
+	if w.Code != 400 || (!strings.Contains(w.Body.String(), "Cannot read folder") || !strings.Contains(w.Body.String(), dir)) {
 		t.Fatal("unreadable mapping accepted", w.Code, w.Body.String())
 	}
 }
@@ -575,5 +575,35 @@ func TestPendingMappingEditPreservesPublishedDownloads(t *testing.T) {
 	}
 	if w = request(t, h, "GET", "/pkg/main/game.pkg", nil, nil, ""); w.Code != 404 {
 		t.Fatal("completed mapping removal still served package", w.Code)
+	}
+}
+
+func TestPublicLibraryProgressDoesNotExposeServerPaths(t *testing.T) {
+	c := config.Defaults()
+	c.DataDir = t.TempDir()
+	privatePath := filepath.Join(t.TempDir(), "private-unavailable-folder")
+	c.Mappings = []config.Mapping{{ID: "main", Path: privatePath, Category: "games", Enabled: true}}
+	a, err := New(context.Background(), filepath.Join(t.TempDir(), "config.json"), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := a.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := a.Engine().Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	w := request(t, a.Handler(false), "GET", "/api/v1/library/status", nil, nil, "")
+	if w.Code != 200 || strings.Contains(w.Body.String(), privatePath) || strings.Contains(w.Body.String(), "current") || strings.Contains(w.Body.String(), "errors") {
+		t.Fatal("private progress exposed", w.Code, w.Body.String())
+	}
+	var body struct {
+		Phase    string `json:"phase"`
+		Warnings int    `json:"warnings"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || body.Phase != "complete" || body.Warnings == 0 {
+		t.Fatal("public progress missing", err, w.Body.String())
 	}
 }

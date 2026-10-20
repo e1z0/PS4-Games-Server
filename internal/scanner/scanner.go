@@ -58,18 +58,26 @@ type Catalog struct {
 	Data map[string]Record `json:"DATA"`
 }
 type Job struct {
-	Running   bool      `json:"running"`
-	Started   time.Time `json:"started"`
-	Finished  time.Time `json:"finished"`
-	Visited   int       `json:"visited"`
-	Inspected int       `json:"inspected"`
-	Reused    int       `json:"reused"`
-	Removed   int       `json:"removed"`
-	Cancelled bool      `json:"cancelled"`
-	Errors    []string  `json:"errors"`
+	Phase         string    `json:"phase"`
+	Total         int       `json:"total"`
+	Current       string    `json:"current,omitempty"`
+	MetadataDone  int       `json:"metadata_done"`
+	MetadataTotal int       `json:"metadata_total"`
+	Running       bool      `json:"running"`
+	Started       time.Time `json:"started"`
+	Finished      time.Time `json:"finished"`
+	Visited       int       `json:"visited"`
+	Inspected     int       `json:"inspected"`
+	Reused        int       `json:"reused"`
+	Removed       int       `json:"removed"`
+	Cancelled     bool      `json:"cancelled"`
+	Errors        []string  `json:"errors"`
 }
 type Enricher interface {
 	Enrich(context.Context, config.Config, []Cached) (map[string]map[string]any, []string, error)
+}
+type ProgressEnricher interface {
+	EnrichWithProgress(context.Context, config.Config, []Cached, func(int, int, string)) (map[string]map[string]any, []string, error)
 }
 type Engine struct {
 	mu              sync.RWMutex
@@ -156,7 +164,7 @@ func (e *Engine) begin(ctx context.Context) (context.Context, error) {
 		return nil, errors.New("scan already running")
 	}
 	ctx, e.cancel = context.WithCancel(ctx)
-	e.job = Job{Running: true, Started: time.Now(), Errors: []string{}}
+	e.job = Job{Running: true, Phase: "discovering", Started: time.Now(), Errors: []string{}}
 	return ctx, nil
 }
 func (e *Engine) Start(ctx context.Context, c config.Config, force bool) error {
@@ -208,6 +216,15 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 		e.job.Running = false
 		e.job.Finished = time.Now()
 		e.job.Cancelled = ctx.Err() != nil
+		e.job.Current = ""
+		switch {
+		case e.job.Cancelled:
+			e.job.Phase = "cancelled"
+		case result != nil:
+			e.job.Phase = "failed"
+		default:
+			e.job.Phase = "complete"
+		}
 		if e.cancel != nil {
 			e.cancel()
 		}
@@ -269,7 +286,7 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			e.issue("mapping " + m.ID + " unavailable; retaining previous entries")
+			e.issue(fmt.Sprintf("Folder %s (%s) is unavailable: %v. Keeping its previous packages.", m.ID, m.Path, err))
 			for _, v := range old {
 				if v.Mapping == m.ID && v.Root == m.Path {
 					next = append(next, v)
@@ -278,12 +295,19 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 			}
 			continue
 		}
+		e.mu.Lock()
+		e.job.Total += len(paths)
+		e.job.Phase = "reading"
+		e.mu.Unlock()
 		for _, path := range paths {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
 			rel, _ := filepath.Rel(root, path)
 			rel = filepath.ToSlash(rel)
+			e.mu.Lock()
+			e.job.Current = rel
+			e.mu.Unlock()
 			canonical, err := storage.Resolve(root, rel)
 			if err != nil {
 				e.issue("mapping " + m.ID + ": excluded unsafe path " + rel)
@@ -325,7 +349,7 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 				continue
 			}
 			if err != nil {
-				e.issue("invalid PS4 package: " + rel)
+				e.issue(fmt.Sprintf("Cannot read PS4 package %s: %v", rel, err))
 				continue
 			}
 			for _, warning := range v.Package.Warnings {
@@ -365,26 +389,63 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 	sort.Slice(next, func(i, j int) bool {
 		return key(next[i].Mapping, next[i].Relative) < key(next[j].Mapping, next[j].Relative)
 	})
-	meta := map[string]map[string]any{}
-	if e.Enricher != nil {
-		var warnings []string
-		var err error
-		meta, warnings, err = e.Enricher.Enrich(ctx, c, next)
-		for _, s := range warnings {
-			e.issue(s)
-		}
-		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			e.issue("metadata unavailable; scan remains usable offline")
-		}
+
+	// Publish native package details before optional online lookups. A slow IGDB
+	// account must not keep the first usable library hidden.
+	e.mu.RLock()
+	meta := e.metadata
+	e.mu.RUnlock()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	e.mu.Lock()
+	e.job.Phase = "publishing"
+	e.job.Current = ""
+	e.mu.Unlock()
+	if err := e.publish(c, next, old, meta); err != nil {
+		return err
+	}
+	e.Log(fmt.Sprintf("%d packages available in the library", len(next)))
+	if e.Enricher == nil {
+		return nil
+	}
+	e.mu.Lock()
+	e.job.Phase = "metadata"
+	e.mu.Unlock()
+	var enriched map[string]map[string]any
+	var warnings []string
+	var err error
+	if progress, ok := e.Enricher.(ProgressEnricher); ok {
+		enriched, warnings, err = progress.EnrichWithProgress(ctx, c, next, func(done, total int, current string) {
+			e.mu.Lock()
+			e.job.MetadataDone, e.job.MetadataTotal, e.job.Current = done, total, current
+			e.mu.Unlock()
+		})
+	} else {
+		enriched, warnings, err = e.Enricher.Enrich(ctx, c, next)
+	}
+	for _, warning := range warnings {
+		e.issue(warning)
 	}
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	if err != nil {
+		e.issue("Game details could not be refreshed; local packages remain available: " + err.Error())
+	}
+	if enriched != nil {
+		meta = enriched
+	}
+	e.mu.Lock()
+	e.job.Phase = "publishing"
+	e.job.Current = ""
+	e.mu.Unlock()
+	return e.publish(c, next, old, meta)
+}
+
+func (e *Engine) publish(c config.Config, next, old []Cached, meta map[string]map[string]any) error {
 	if err := writeCatalogs(c, next, old, meta); err != nil {
-		e.issue("catalog write failed")
+		e.issue("Cannot save the catalog; check data-directory permissions and free space")
 		return err
 	}
 	state := State{Version: 1, Entries: next}
@@ -396,8 +457,8 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 		remaining[key(v.Mapping, v.Relative)] = true
 	}
 	removed := 0
-	for k := range oldMap {
-		if !remaining[k] {
+	for _, v := range old {
+		if !remaining[key(v.Mapping, v.Relative)] {
 			removed++
 		}
 	}
@@ -410,6 +471,7 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 	e.mu.Unlock()
 	return nil
 }
+
 func ptr(s string) *string {
 	if s == "" {
 		return nil

@@ -11,7 +11,7 @@ Baseline: FPKGi-node-server commit 88a969c. Its 15 Linux tests passed before imp
 | Encrypted metadata/icons | Reported; never decrypted; parser tests |
 | Recursive stable mapping IDs, overlap deduplication | Implemented; sorted canonical paths; scanner tests |
 | Relative incremental metadata/icon offsets; no game hashing | Implemented; stat size/mtime/platform timestamps; restart reuse tests |
-| Startup/scheduled/forced/cancellable scans and overlap prevention | Implemented; single-job engine and scheduler; cancellation/overlap tests |
+| Startup/scheduled/forced/cancellable scans and overlap prevention | Implemented; visible stage/count progress bars on admin and library; local publication before enrichment; cancellation/overlap tests |
 | Removal and unavailable-mapping retention | Implemented; scanner tests |
 | FPKGi DATA and original primitive field types | Implemented; golden catalog test; decimal-string sizes, nullable identifiers/firmware/cover |
 | Nested escaped URL paths; deterministic unchanged files | Implemented; Unicode/path/timestamp tests |

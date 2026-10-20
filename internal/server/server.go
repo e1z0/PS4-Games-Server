@@ -299,6 +299,15 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, 200, urls)
 		return
 	}
+	if route == "library/status" && r.Method == "GET" {
+		j := a.Engine().Status()
+		// Public library progress deliberately omits server paths and private errors.
+		jsonOut(w, 200, map[string]any{"running": j.Running, "phase": j.Phase,
+			"visited": j.Visited, "total": j.Total, "metadata_done": j.MetadataDone,
+			"metadata_total": j.MetadataTotal, "packages": len(a.Engine().Snapshot()),
+			"warnings": len(j.Errors), "cancelled": j.Cancelled, "finished": j.Finished})
+		return
+	}
 	if route == "library" && r.Method == "GET" {
 		jsonOut(w, 200, a.Engine().Catalogs(a.Config()))
 		return
@@ -313,6 +322,7 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
 		valid := a.token != "" && !a.cfg.Configured && subtle.ConstantTimeCompare([]byte(b.Token), []byte(a.token)) == 1
 		c := a.cfg.Redacted()
+		secretSet := a.cfg.IGDB.ClientSecret != ""
 		if !valid {
 			a.mu.Unlock()
 			fail(w, 403, "invalid or expired setup token")
@@ -320,7 +330,7 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		}
 		s := a.newSessionLocked(w, r, true)
 		a.mu.Unlock()
-		jsonOut(w, 200, map[string]any{"csrf": s.CSRF, "config": c})
+		jsonOut(w, 200, map[string]any{"csrf": s.CSRF, "config": c, "igdb_secret_set": secretSet})
 		return
 	}
 	if route == "auth/login" && r.Method == "POST" {
@@ -337,7 +347,8 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if route == "auth/session" && r.Method == "GET" {
-		jsonOut(w, 200, map[string]any{"csrf": s.CSRF, "setup": s.Setup, "config": a.Config().Redacted()})
+		c := a.Config()
+		jsonOut(w, 200, map[string]any{"csrf": s.CSRF, "setup": s.Setup, "config": c.Redacted(), "igdb_secret_set": c.IGDB.ClientSecret != ""})
 		return
 	}
 	if route == "setup" && r.Method == "PUT" && s.Setup {
@@ -516,14 +527,14 @@ func (a *App) settings(w http.ResponseWriter, r *http.Request, setup bool) {
 					}
 				}
 				if !found {
-					fail(w, 400, "mapping directory unavailable: "+m.ID)
+					fail(w, 400, "Cannot read folder "+m.Path+" ("+m.ID+"). Choose an existing readable server folder; Docker paths must be mounted in Compose.")
 					return
 				}
 			}
 		}
 	}
 	if e := Writable(c.DataDir); e != nil {
-		fail(w, 400, "data directory is not writable")
+		fail(w, 400, "Cannot write to data folder "+c.DataDir+". Choose writable storage and check the container UID/GID permissions.")
 		return
 	}
 	var engine *scanner.Engine
@@ -585,7 +596,7 @@ func (a *App) directories(w http.ResponseWriter, r *http.Request) {
 	}
 	entries, e := os.ReadDir(p)
 	if e != nil {
-		fail(w, 400, "directory unavailable on server")
+		fail(w, 400, "Cannot open "+p+". Check that the folder exists and the server can read it. In Docker, select a mounted container folder such as /packages.")
 		return
 	}
 	dirs := []string{}

@@ -2,6 +2,10 @@
 
 ## 0.1.0 (unreleased)
 
+- Replace oversized dark UI with a compact neutral theme, guided wizard, hidden advanced settings, clearer folder help and actionable errors.
+- Show live package and IGDB progress bars on library/admin pages, with stage/count/current-title information and readable warning summaries.
+- Publish local package catalogs before IGDB enrichment so initial feeds become usable while optional game details are still loading; retain published packages when enrichment is cancelled.
+
 - Add an EXE-only Windows walkthrough and native Windows service install/start/stop/status/uninstall, limited Local Service account, graceful shutdown and service.log.
 - Keep Windows double-click configuration/data beside the EXE and include WINDOWS.md in Windows archives; add real service lifecycle CI coverage.
 

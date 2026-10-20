@@ -38,3 +38,7 @@ Hosted verification: run [39341972657](https://github.com/e1z0/PS4-Games-Server/
 ## Docker Hub publication — 2026-10-20
 
 Published nulldevil/ps4-games-server:0.1.0-dev from c10a41a for Linux amd64/arm64, verified both registry manifests, and pulled/smoke-tested the published amd64 image with healthy startup as UID 10001. Latest was unchanged. Digest and cleanup evidence are recorded in docs/validation.md.
+
+## Compact setup and visible scanning — 2026-10-20
+
+Inspected the authorized media deployment over SSH. Existing configuration and mounts were valid; the initial feed stayed empty until a long IGDB pass finished. The existing deployment eventually published 111 packages with IGDB details for 99. Reworked the UI with compact controls and a light neutral theme, a six-step guided sidebar, progressive disclosure, actionable directory/API errors, and visible stage/count progress on public library/admin. Local parsing now publishes catalogs before optional metadata work. Added regression coverage for early publication, enrichment cancellation, real metadata progress callbacks and public progress redaction.

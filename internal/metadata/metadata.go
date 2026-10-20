@@ -261,6 +261,9 @@ func LoadOverrides(dir string) (map[string]Object, error) {
 	return m, e
 }
 func (s *Service) Enrich(ctx context.Context, c config.Config, entries []scanner.Cached) (map[string]Object, []string, error) {
+	return s.EnrichWithProgress(ctx, c, entries, nil)
+}
+func (s *Service) EnrichWithProgress(ctx context.Context, c config.Config, entries []scanner.Cached, progress func(int, int, string)) (map[string]Object, []string, error) {
 	cache := Cache{Version: 1, Titles: map[string]Entry{}}
 	if e := storage.Read(filepath.Join(c.DataDir, "metadata-cache.json"), &cache); e != nil && !errors.Is(e, os.ErrNotExist) {
 		return nil, nil, errors.New("invalid metadata cache")
@@ -292,7 +295,10 @@ func (s *Service) Enrich(ctx context.Context, c config.Config, entries []scanner
 	out := map[string]Object{}
 	warnings := []string{}
 	networkFailed := false
-	for _, id := range ids {
+	for index, id := range ids {
+		if progress != nil {
+			progress(index, len(ids), titles[id])
+		}
 		if ctx.Err() != nil {
 			return nil, warnings, ctx.Err()
 		}
@@ -334,6 +340,9 @@ func (s *Service) Enrich(ctx context.Context, c config.Config, entries []scanner
 	}
 	if ctx.Err() != nil {
 		return nil, warnings, ctx.Err()
+	}
+	if progress != nil {
+		progress(len(ids), len(ids), "")
 	}
 	if e = storage.JSON(filepath.Join(c.DataDir, "metadata-cache.json"), cache); e != nil {
 		return out, warnings, e

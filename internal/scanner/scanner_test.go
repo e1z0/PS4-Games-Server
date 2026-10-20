@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -395,5 +396,95 @@ func TestRestartCannotServeDisabledOrRepointedCachedRoots(t *testing.T) {
 	var catalog Catalog
 	if err = storage.Read(filepath.Join(c.DataDir, "catalogs", "games.json"), &catalog); err != nil || len(catalog.Data) != 0 || disabled.Status().Removed != 1 {
 		t.Fatal("retired catalog not cleared", err, disabled.Status())
+	}
+}
+
+type progressGate struct {
+	entered chan struct{}
+	finish  chan struct{}
+}
+
+func (g progressGate) Enrich(ctx context.Context, c config.Config, entries []Cached) (map[string]map[string]any, []string, error) {
+	return g.EnrichWithProgress(ctx, c, entries, nil)
+}
+func (g progressGate) EnrichWithProgress(ctx context.Context, _ config.Config, entries []Cached, progress func(int, int, string)) (map[string]map[string]any, []string, error) {
+	if progress != nil {
+		progress(0, 1, "Waiting for optional game details")
+	}
+	close(g.entered)
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case <-g.finish:
+		if progress != nil {
+			progress(1, 1, "")
+		}
+		return map[string]map[string]any{entries[0].Package.TitleID: {"summary": "Fetched after local publication"}}, nil, nil
+	}
+}
+func TestLocalCatalogIsPublishedBeforeOptionalMetadata(t *testing.T) {
+	for _, cancelMetadata := range []bool{false, true} {
+		t.Run(fmt.Sprint("cancel=", cancelMetadata), func(t *testing.T) {
+			c, _ := fixture(t)
+			e, err := New(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gate := progressGate{make(chan struct{}), make(chan struct{})}
+			e.Enricher = gate
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() { done <- e.Run(ctx, c, false) }()
+			select {
+			case <-gate.entered:
+			case <-time.After(30 * time.Second):
+				t.Fatal("metadata never started")
+			}
+			status := e.Status()
+			if !status.Running || status.Phase != "metadata" || status.MetadataTotal != 1 || status.Current == "" {
+				t.Fatal("missing live progress", status)
+			}
+			if len(e.Snapshot()) != 1 || len(e.Catalogs(c)["games"].Data) != 1 {
+				t.Fatal("optional metadata hides local library")
+			}
+			restored, err := New(c)
+			if err != nil || len(restored.Snapshot()) != 1 {
+				t.Fatal("local results were not persisted", err)
+			}
+			if cancelMetadata {
+				cancel()
+			} else {
+				close(gate.finish)
+			}
+			select {
+			case err := <-done:
+				if cancelMetadata && err == nil {
+					t.Fatal("cancellation not reported")
+				}
+				if !cancelMetadata && err != nil {
+					t.Fatal(err)
+				}
+			case <-time.After(30 * time.Second):
+				t.Fatal("scan never finished")
+			}
+			if len(e.Snapshot()) != 1 {
+				t.Fatal("metadata cancellation removed published packages")
+			}
+			if cancelMetadata {
+				if !e.Status().Cancelled || e.Status().Phase != "cancelled" {
+					t.Fatal(e.Status())
+				}
+			} else {
+				if e.Status().Phase != "complete" || e.Status().MetadataDone != 1 {
+					t.Fatal(e.Status())
+				}
+				for _, record := range e.Catalogs(c)["games"].Data {
+					if record.IGDB["summary"] != "Fetched after local publication" {
+						t.Fatal("enrichment not added", record)
+					}
+				}
+			}
+		})
 	}
 }
