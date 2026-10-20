@@ -86,3 +86,7 @@ Documentation validation passed: reviewed three secret-free browser captures, ve
 Changed the shared library/admin feed guidance to “Copy the feed URL you want to use in PS4 Games Installer.”
 
 Published 7248b87 to Docker Hub and deployed it to media. Exact wording checked in live Library and the authenticated local example admin. Refreshed the README captures without credentials; health passed and the NAS scan retained 111 packages with zero warnings.
+
+## Project footer — 2026-10-20
+
+Updated the shared page footer with server/installer GitHub links, v0.1.0, © 2026 e1z0 and linked GPLv2 license terms.

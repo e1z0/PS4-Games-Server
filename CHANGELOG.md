@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Add linked server/installer project credits, v0.1.0, copyright and GPLv2 terms to the shared footer.
+
 - Update shared Game feeds guidance to name PS4 Games Installer.
 
 - Rewrite the README for consumers around PS4 Games Installer, with library/details/admin screenshots, a password-free NAS Compose example and matching folder layout. Move advanced operations to EXPERT.md and development/release instructions to DEVELOPER.md.
