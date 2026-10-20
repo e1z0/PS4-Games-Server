@@ -55,9 +55,9 @@ This permits port 8080 from your local subnet on Private networks ([Microsoft fi
 
 Test `http://192.168.1.20:8080/library` from another computer or phone on that network. If your PC's address changes, update Public URL in administration; a DHCP reservation in your router helps keep the address stable.
 
-## 4. Copy the FPKGi configuration
+## 4. Add feed URLs to FPKGi
 
-Open the library and use its copy-configuration button. For the example above, the `content_urls` portion is:
+Open the library and use **Copy** beside each feed URL you want to use. For the example above, the `content_urls` portion of your FPKGi configuration is:
 
 ```json
 {
@@ -70,7 +70,7 @@ Open the library and use its copy-configuration button. For the example above, t
 }
 ```
 
-Use your actual PC address. Merge `content_urls` into your existing FPKGi configuration, retaining other settings. Copy the generated configuration when your categories differ. The feeds and downloads are public on your LAN; only administration requires login. Real console installation remains an external acceptance check.
+Use your actual PC address. Merge `content_urls` into your existing FPKGi configuration, retaining other settings. Use the category URLs shown in your library when your folders or categories differ. The feeds and downloads are public on your LAN; only administration requires login. Real console installation remains an external acceptance check.
 
 ## Optional: start automatically as a Windows service
 

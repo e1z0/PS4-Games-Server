@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Show an indeterminate loading bar during page loads, directory browsing and interactive backend requests; keep routine polling quiet.
+- Remove the full-configuration copy button; keep individual category feed URL copying.
 - Replace oversized dark UI with a compact neutral theme, guided wizard, hidden advanced settings, clearer folder help and actionable errors.
 - Show live package and IGDB progress bars on library/admin pages, with stage/count/current-title information and readable warning summaries.
 - Publish local package catalogs before IGDB enrichment so initial feeds become usable while optional game details are still loading; retain published packages when enrichment is cancelled.

@@ -3,15 +3,28 @@
 const content=document.querySelector('#content'),heading=document.querySelector('#heading'),message=document.querySelector('#message');let csrf='';let feedURLs={};let savedIGDBSecret=false;
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=String(text);if(cls)n.className=cls;return n};
 function notify(text,error=false){message.textContent=text;message.className=error?'error':'success'}
-async function api(path,method='GET',body){
- const options={method,headers:{'X-CSRF-Token':csrf}};
- if(body!==undefined){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body)}
- let r;
- try{r=await fetch('/api/v1/'+path,options)}catch{throw Error('Cannot reach the server. Check your connection and that the server is running, then try again.')}
- let b;try{b=await r.json()}catch{throw Error(`The server returned an unexpected response (${r.status}). Check the server logs or reverse proxy, then try again.`)}
- if(!r.ok){const defaults={401:'Please sign in again. Your session may have expired.',403:'This action could not be verified. Reload the page and try again.',409:'A scan is already running. Wait for it to finish or cancel it first.',429:'Too many sign-in attempts. Wait 15 minutes, then try again.'};throw Error((['login required','CSRF token required'].includes(b.error)?defaults[r.status]:b.error)||defaults[r.status]||`Request failed (${r.status}). Please try again.`)}
- return b;
+let pendingRequests=0,requestTimer;
+const requestStatus=document.querySelector('#request-status');
+function requestStarted(){
+ pendingRequests++;document.querySelector('main').setAttribute('aria-busy','true');
+ if(pendingRequests===1)requestTimer=setTimeout(()=>{requestStatus.hidden=false},150);
 }
+function requestFinished(){
+ pendingRequests=Math.max(0,pendingRequests-1);
+ if(!pendingRequests){clearTimeout(requestTimer);requestStatus.hidden=true;document.querySelector('main').setAttribute('aria-busy','false')}
+}
+async function api(path,method='GET',body,quiet=false){
+ if(!quiet)requestStarted();
+ try{
+  const options={method,headers:{'X-CSRF-Token':csrf}};
+  if(body!==undefined){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body)}
+  let r;try{r=await fetch('/api/v1/'+path,options)}catch{throw Error('Cannot reach the server. Check your connection and that the server is running, then try again.')}
+  let b;try{b=await r.json()}catch{throw Error(`The server returned an unexpected response (${r.status}). Check the server logs or reverse proxy, then try again.`)}
+  if(!r.ok){const defaults={401:'Please sign in again. Your session may have expired.',403:'This action could not be verified. Reload the page and try again.',409:'A scan is already running. Wait for it to finish or cancel it first.',429:'Too many sign-in attempts. Wait 15 minutes, then try again.'};throw Error((['login required','CSRF token required'].includes(b.error)?defaults[r.status]:b.error)||defaults[r.status]||`Request failed (${r.status}). Please try again.`)}
+  return b;
+ }finally{if(!quiet)requestFinished()}
+}
+
 function button(text,fn,cls){
  const b=el('button',text,cls);b.type='button';
  b.addEventListener('click',async()=>{b.disabled=true;try{await fn()}catch(e){notify(e.message,true)}finally{b.disabled=false}});return b;
@@ -44,8 +57,13 @@ function scanProgress(){
 }
 function area(parent,label,value){const l=el('label',label),i=el('textarea');i.value=value;l.append(i);parent.append(l);return i}
 async function copy(value){try{await navigator.clipboard.writeText(value);notify('Copied')}catch{const d=el('dialog');const i=el('textarea');i.value=value;d.append(i,button('Close',()=>d.remove()));document.body.append(d);d.showModal();i.select();notify('Select and copy the text')}}
-function fpkgiConfiguration(urls){const content_urls={};for(const [category,url]of Object.entries(urls)){const key=category.toLowerCase();if(key==='ps5'||key.length>32)throw Error('FPKGi needs a category label of at most 32 characters and skips the label ps5. Copy this feed URL into a compatible client category.');if(Object.hasOwn(content_urls,key))throw Error('FPKGi category labels must be unique ignoring letter case. Copy these feed URLs into distinct client categories.');content_urls[key]=url}if(Object.keys(content_urls).length+(Object.hasOwn(content_urls,'games')?0:1)>32)throw Error('FPKGi supports up to 32 sources including games. Copy individual feed URLs for the categories you want in this client.');return {schema:1,content_urls}}
-function feedList(cats){const d=el('div',undefined,'feeds');d.append(el('h2','FPKGi feeds'),el('p','Copy a category URL into your FPKGi configuration.'));for(const cat of Object.keys(cats).sort()){const row=el('div',undefined,'feed'),i=el('input');i.readOnly=true;i.value=feedURLs[cat]||location.origin+'/feeds/'+encodeURIComponent(cat);row.append(el('span',cat),i,button('Copy',()=>copy(i.value)));d.append(row)}d.append(button('Copy FPKGi configuration',()=>{const urls={};for(const row of d.querySelectorAll('.feed'))urls[row.querySelector('span').textContent]=row.querySelector('input').value;return copy(JSON.stringify(fpkgiConfiguration(urls),null,2))}));return d}
+function feedList(cats){
+ const d=el('div',undefined,'feeds');d.append(el('h2','FPKGi feeds'),el('p','Copy the feed URLs you want to use in FPKGi.','muted'));
+ for(const cat of Object.keys(cats).sort()){
+  const row=el('div',undefined,'feed'),i=el('input');i.readOnly=true;i.value=feedURLs[cat]||location.origin+'/feeds/'+encodeURIComponent(cat);i.setAttribute('aria-label',cat+' feed URL');row.append(el('span',cat),i,button('Copy',()=>copy(i.value)));d.append(row);
+ }
+ return d;
+}
 function safeURL(s){try{const u=new URL(s,location.origin);if(['http:','https:'].includes(u.protocol))return u.href}catch{}return ''}
 function showDetails(game){const panel=document.querySelector('#detail-content');panel.replaceChildren(el('h2',game.name),el('p',`${game.title_id||'Homebrew'} · ${game.package_type} · ${game.version} · ${game.min_fw||'Unknown'} firmware`));const metadata=game.igdb||{};if(metadata.summary)panel.append(el('p',metadata.summary));if(metadata.storyline)panel.append(el('p',metadata.storyline));for(const key of ['genres','themes','developers','publishers','game_modes'])if(metadata[key]?.length)panel.append(el('p',`${key.replaceAll('_',' ')}: ${metadata[key].join(', ')}`));const shots=el('div',undefined,'shots');for(const shot of metadata.media?.screenshots||[]){const src=safeURL(shot.url);if(src){const img=el('img');img.src=src;img.loading='lazy';img.alt='Game screenshot';shots.append(img)}}panel.append(shots);if(metadata.relationships){panel.append(el('h3','Related games'));for(const [key,items] of Object.entries(metadata.relationships)){if(Array.isArray(items)&&items.length)panel.append(el('p',`${key.replaceAll('_',' ')}: ${items.map(i=>i.name).join(', ')}`))}}const technical=el('details');technical.append(el('summary','All metadata'),el('pre',JSON.stringify(game,null,2)));panel.append(technical,button('Copy package URL',()=>copy(game.package_url)));document.querySelector('#details').showModal()}
 document.querySelector('#close-details').onclick=()=>document.querySelector('#details').close();
@@ -60,7 +78,7 @@ async function library(){
  for(const g of list){const card=button('',()=>showDetails(g),'card'),img=el('img');img.src=safeURL(g.cover_url)||'/fallback.svg';img.loading='lazy';img.alt=g.name;img.onerror=()=>{img.onerror=null;img.src='/fallback.svg'};const text=el('div');text.append(el('span',g.package_type,'badge'),el('h3',g.name),el('small',`${g.title_id||'Homebrew'} · v${g.version}`));card.append(img,text);grid.append(card)}
  if(!all.length){const empty=el('div',undefined,'empty');empty.append(el('h3','No packages published yet'),el('p','If a scan is running, its progress appears above. Otherwise, add your package folder and start a scan in Administration.'));const link=el('a','Open Administration');link.href='/admin';empty.append(link);grid.append(empty)}else if(!list.length)grid.append(el('p','No matches. Try another search or clear the filters.','empty'));
  }for(const i of [search,category,type])i.addEventListener('input',draw);draw();
- let refreshing=false,wasRunning=false;async function refresh(){if(refreshing)return;refreshing=true;try{const j=await api('library/status');scan.box.hidden=!j.running&&!j.warnings&&j.phase!=='failed'&&j.phase!=='cancelled';scan.update(j,j.packages);if(j.packages!==all.length||(wasRunning&&!j.running)){cats=await api('library');unpack();draw()}wasRunning=j.running}catch(e){scan.box.hidden=false;scan.update({phase:'failed'},all.length);notify(e.message,true)}finally{refreshing=false}}
+ let refreshing=false,wasRunning=false;async function refresh(){if(refreshing)return;refreshing=true;try{const j=await api('library/status','GET',undefined,true);scan.box.hidden=!j.running&&!j.warnings&&j.phase!=='failed'&&j.phase!=='cancelled';scan.update(j,j.packages);if(j.packages!==all.length||(wasRunning&&!j.running)){cats=await api('library','GET',undefined,true);unpack();draw()}wasRunning=j.running}catch(e){scan.box.hidden=false;scan.update({phase:'failed'},all.length);notify(e.message,true)}finally{refreshing=false}}
  await refresh();setInterval(refresh,2000);
 }
 async function login(){heading.textContent='Sign in';if(new URLSearchParams(location.search).has('restart'))notify('Settings saved. Restart the server to apply the new listeners. You can sign in here to finish the first scan.');const form=el('form',undefined,'panel narrow');const user=field(form,'Administrator username','','text'),pass=field(form,'Password','','password');user.autocomplete='username';pass.autocomplete='current-password';const submit=el('button','Sign in','primary');form.append(submit);form.onsubmit=async e=>{e.preventDefault();try{const b=await api('auth/login','POST',{username:user.value,password:pass.value});csrf=b.csrf;if(new URLSearchParams(location.search).has('first')){try{await api('scan','POST',{force:false})}catch(e){if(!e.message.includes('already running'))throw e}}location.href='/admin'}catch(err){notify(err.message,true)}};content.append(form)}
@@ -80,7 +98,7 @@ async function browse(input){
  const select=button('Use this folder',()=>{input.value=path.value;d.close();d.remove()},'primary');select.disabled=true;
  const controls=el('div',undefined,'actions');controls.append(button('Cancel',()=>{d.close();d.remove()}),select);
  d.append(el('h2','Choose a server folder'),el('p','These folders belong to the server. In Docker, /packages is the mounted games folder. Host folders must be added to Compose first.','muted'),path,button('Open path',()=>load(path.value)),error,body,controls);document.body.append(d);d.showModal();
- async function load(p){select.disabled=true;error.textContent='';try{const b=await api('directories?path='+encodeURIComponent(p));path.value=b.path;body.replaceChildren(button('↑ Parent folder',()=>load(b.parent)));for(const root of b.roots||[])body.append(button(root,()=>load(root)));for(const dir of b.directories)body.append(button(dir.split(/[\\/]/).filter(Boolean).pop()||dir,()=>load(dir)));if(!b.directories.length)body.append(el('p','No subfolders. You can select this folder.','muted'));select.disabled=false}catch(e){error.textContent=e.message}}
+ async function load(p){select.disabled=true;error.textContent='';const loading=el('progress');loading.setAttribute('aria-label','Loading folders');body.replaceChildren(loading,el('p','Reading folders from the server…','muted'));try{const b=await api('directories?path='+encodeURIComponent(p));path.value=b.path;body.replaceChildren(button('↑ Parent folder',()=>load(b.parent)));for(const root of b.roots||[])body.append(button(root,()=>load(root)));for(const dir of b.directories)body.append(button(dir.split(/[\\/]/).filter(Boolean).pop()||dir,()=>load(dir)));if(!b.directories.length)body.append(el('p','No subfolders. You can select this folder.','muted'));select.disabled=false}catch(e){body.replaceChildren();error.textContent=e.message}}
  await load(input.value||'');
 }
 function generalFields(parent,c){
@@ -145,8 +163,9 @@ async function admin(){
  const igdb=el('details');igdb.append(el('summary','Optional game details'));const getIGDB=igdbFields(igdb,c);general.append(igdb);columns.append(general,folders);settings.append(columns,button('Save settings',async()=>{const next={...c,...getGeneral(),admin:getAdmin(),scan:getScan(),mappings:getMappings(),igdb:getIGDB()};const b=await api('settings','PUT',next);notify(b.restart_required?'Saved. Restart the server to apply network or data-folder changes.':'Saved. Folder and scan changes apply to the next scan.');if(b.login_required)location.href='/login'},'primary'));content.append(settings);
  const overrides=el('details',undefined,'panel');overrides.append(el('summary','Advanced: metadata overrides'),el('p','A JSON object keyed by Title ID. Example: {"CUSA12345":{"summary":"My description"}}. Run a scan after saving.','muted'));const text=area(overrides,'Overrides JSON',JSON.stringify(await api('metadata/overrides'),null,2));overrides.append(button('Save overrides',async()=>{let parsed;try{parsed=JSON.parse(text.value)}catch{throw Error('Overrides must be valid JSON. Check commas, quotes and braces.')}const b=await api('metadata/overrides','PUT',parsed);notify(b.status)}));content.append(overrides);
  const logPanel=el('details',undefined,'panel'),logs=el('pre');logPanel.append(el('summary','Recent server messages'),logs);content.append(logPanel,feedList(await api('library')));
- async function refresh(){if(refreshing)return;refreshing=true;try{const b=await api('status');scan.update(b.scan,b.packages);stats.replaceChildren();for(const [n,label]of [[b.packages,'available packages'],[b.scan.inspected,'read this scan'],[b.scan.reused,'reused from cache'],[b.scan.errors.length,'warnings']]){const stat=el('div',undefined,'stat');stat.append(el('strong',n||0),el('span',label));stats.append(stat)}errors.replaceChildren();for(const error of b.scan.errors.slice(-8))errors.append(el('li',error));logs.textContent=(await api('logs')).join('\n')||'No messages yet.';if(b.restart_required)notify('Settings saved. Restart the server to apply network or data-folder changes.')}catch(e){notify(e.message,true)}finally{refreshing=false}}
+ async function refresh(){if(refreshing)return;refreshing=true;try{const b=await api('status','GET',undefined,true);scan.update(b.scan,b.packages);stats.replaceChildren();for(const [n,label]of [[b.packages,'available packages'],[b.scan.inspected,'read this scan'],[b.scan.reused,'reused from cache'],[b.scan.errors.length,'warnings']]){const stat=el('div',undefined,'stat');stat.append(el('strong',n||0),el('span',label));stats.append(stat)}errors.replaceChildren();for(const error of b.scan.errors.slice(-8))errors.append(el('li',error));logs.textContent=(await api('logs','GET',undefined,true)).join('\n')||'No messages yet.';if(b.restart_required)notify('Settings saved. Restart the server to apply network or data-folder changes.')}catch(e){notify(e.message,true)}finally{refreshing=false}}
  await refresh();setInterval(refresh,2000);
 }
 document.querySelector('#logout').onclick=async()=>{try{await api('auth/logout','POST',{});location.href='/login'}catch(e){notify(e.message,true)}};
-(async()=>{try{if(location.pathname==='/setup')await setup();else if(location.pathname==='/login')await login();else if(location.pathname==='/admin'){try{await admin()}catch(e){if(e.message.includes('login required')||e.message.includes('sign in'))location.href='/login';else throw e}}else await library()}catch(e){notify(e.message,true)}})();
+const pageLoading=el('div',undefined,'page-loading'),pageLoadingBar=el('progress');pageLoadingBar.setAttribute('aria-label','Loading page data');pageLoading.append(pageLoadingBar,el('p','Loading data from your server…'),el('small','This may take a moment on a NAS. The page will update when it is ready.'));content.append(pageLoading);
+(async()=>{try{if(location.pathname==='/setup')await setup();else if(location.pathname==='/login')await login();else if(location.pathname==='/admin'){try{await admin()}catch(e){if(e.message.includes('login required')||e.message.includes('sign in'))location.href='/login';else throw e}}else await library()}catch(e){notify(e.message,true)}finally{pageLoading.remove()}})();
