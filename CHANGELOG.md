@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Copy feed/package URLs directly on plain HTTP with a clipboard-command fallback. If browser policy blocks copying, select the URL in place instead of opening another dialog.
+
 - Keep routine encrypted payload-section notices in scan logs instead of counting them as failures/warnings; unreadable metadata/icon warnings remain visible.
 
 - Restore cached metadata with lightweight image existence checks at startup; defer full screenshot decoding and repair to visible scans so slow NAS storage does not block the HTTP listener.

@@ -56,11 +56,30 @@ function scanProgress(){
  }};
 }
 function area(parent,label,value){const l=el('label',label),i=el('textarea');i.value=value;l.append(i);parent.append(l);return i}
-async function copy(value){try{await navigator.clipboard.writeText(value);notify('Copied')}catch{const d=el('dialog');const i=el('textarea');i.value=value;d.append(i,button('Close',()=>d.remove()));document.body.append(d);d.showModal();i.select();notify('Select and copy the text')}}
+async function copy(value,source){
+ // The modern API is restricted to secure contexts; LAN HTTP needs the
+ // synchronous copy-command fallback inside the user's button activation.
+ if(window.isSecureContext&&navigator.clipboard?.writeText){
+  try{await navigator.clipboard.writeText(value);notify('Link copied');return}catch{}
+ }
+ const active=document.activeElement,buffer=el('textarea');buffer.value=value;buffer.readOnly=true;buffer.className='clipboard-buffer';buffer.setAttribute('aria-label','Clipboard buffer');
+ (document.querySelector('dialog[open]')||document.body).append(buffer);
+ let copied=false;
+ try{buffer.focus({preventScroll:true});buffer.select();buffer.setSelectionRange(0,value.length);copied=document.execCommand('copy')}catch{}
+ finally{buffer.remove();if(active?.isConnected)active.focus({preventScroll:true})}
+ if(copied){notify('Link copied');return}
+ // When browser policy blocks both methods, select the existing URL instead
+ // of opening another modal or claiming that copying succeeded.
+ const target=source||el('input');target.value=value;target.readOnly=true;
+ if(!source){target.setAttribute('aria-label','Link to copy');(document.querySelector('#details[open] #detail-content')||content).append(target)}
+ target.focus();target.select();target.setSelectionRange(0,value.length);
+ notify('Your browser blocked automatic copying. The link is selected; press Ctrl+C or ⌘C to copy it.');
+}
+
 function feedList(cats){
  const d=el('div',undefined,'feeds');d.append(el('h2','FPKGi feeds'),el('p','Copy the feed URLs you want to use in FPKGi.','muted'));
  for(const cat of Object.keys(cats).sort()){
-  const row=el('div',undefined,'feed'),i=el('input');i.readOnly=true;i.value=feedURLs[cat]||location.origin+'/feeds/'+encodeURIComponent(cat);i.setAttribute('aria-label',cat+' feed URL');row.append(el('span',cat),i,button('Copy',()=>copy(i.value)));d.append(row);
+  const row=el('div',undefined,'feed'),i=el('input');i.readOnly=true;i.value=feedURLs[cat]||location.origin+'/feeds/'+encodeURIComponent(cat);i.setAttribute('aria-label',cat+' feed URL');row.append(el('span',cat),i,button('Copy',()=>copy(i.value,i)));d.append(row);
  }
  return d;
 }

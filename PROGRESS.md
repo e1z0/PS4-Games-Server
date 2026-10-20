@@ -50,3 +50,7 @@ Deployment exposed a separate CPU bottleneck: cached screenshot decoding blocked
 Live-cache inspection confirmed all 111 displayed scan warnings were routine additional encrypted CNT sections, not parse failures. Those notices remain in logs and cached parser details, while the attention count now includes only actionable warnings.
 
 Delivered to the authorized media NAS and Docker Hub from dfa89fd. Configuration/data backup retained, container healthy at UID/GID 1026:100, all 111 packages preserved, 109 min_fw values and 99 rich metadata records verified, and real range download passed. Live Chromium confirmed animated request loading, public metadata progress (22/98 while packages were available), zero scan warnings, individual feed Copy only and mobile layout. Hosted run 39439106980 passed all jobs. Registry digest and full verification are in docs/validation.md.
+
+## Clipboard behavior on LAN HTTP — 2026-10-20
+
+The Copy button previously relied only on the secure-context Clipboard API, so plain HTTP opened a manual-copy dialog. Added a synchronous clipboard-command fallback, preserving focus and supporting package details inside a modal. If both browser methods are blocked, select the URL in place with a keyboard-copy hint; no extra dialog is opened and success is only reported after copying succeeds.
