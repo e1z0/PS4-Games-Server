@@ -60,3 +60,5 @@ Clipboard fix deployed to media and Docker Hub from 2db09ee. Live Chromium paste
 ## Feed placement — 2026-10-20
 
 Renamed the shared feed section to Game feeds and moved library feed URLs above search/category/type filters and game cards. Kept individual Copy controls and compact spacing.
+
+Feed placement deployed to media and Docker Hub from 65605c3. Live browser checks confirmed Game feeds above filters and all 111 games on desktop/mobile, with URL Copy retained, no overflow/page errors and healthy backend.
