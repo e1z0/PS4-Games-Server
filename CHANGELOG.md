@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Show responsive embedded YouTube videos after game screenshots, with validated/deduplicated IDs, direct watch links, lazy loading and playback cleanup when details close.
+
 - Add linked server/installer project credits, v0.1.0, copyright and GPLv2 terms to the shared footer.
 
 - Update shared Game feeds guidance to name PS4 Games Installer.

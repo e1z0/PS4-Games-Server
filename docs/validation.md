@@ -120,3 +120,9 @@ Changed the shared library/admin text to the exact requested sentence. JavaScrip
 ## Project footer — 2026-10-20
 
 Shared footer now links both GitHub projects, displays v0.1.0 and © 2026 e1z0, and links GPLv2 terms. Browser checks verified exact text, all three link targets and no horizontal overflow at 1440px/390px, first from local assets and then on the live NAS. Native build, six release archives, source-map and whitespace checks passed. Published source 14b1ec4 as Docker Hub 0.1.0-dev (amd64/arm64), index sha256:732cac3d40b726b82e09aee6b0e931fa22e2af8b1932c0ea125cb6c46a9762b2, and recreated the authorized NAS deployment; binary health passed. Refreshed/reviewed the local authenticated example admin screenshot with empty secret fields, logged out, and removed its capture container/login file.
+
+## Embedded game videos — 2026-10-20
+
+The live catalog already had video metadata for 93 package records. Added browser players using that existing schema. make check passed (format, vet, all Go/race tests and source-map); native build and JavaScript syntax passed. Chromium against the built native HTTP server, with mocked catalog/player responses, verified screenshot-before-video ordering, valid IDs and URL fallback, duplicate/malformed/host-spoof filtering, literal title rendering, actual CSP-permitted frame requests with origin-only Referer, lazy/fullscreen/no-autoplay attributes, mobile minimum player dimensions, and frame removal after both Close and Escape. Empty/invalid video lists render no section.
+
+Implementation references: [YouTube embed parameters](https://developers.google.com/youtube/player_parameters), [privacy-enhanced embeds](https://support.google.com/youtube/answer/171780), and [required client identification/referrer](https://developers.google.com/youtube/terms/required-minimum-functionality).

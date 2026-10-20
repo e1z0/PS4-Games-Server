@@ -12,7 +12,7 @@ You can also browse the whole library in a web browser. The server runs as one e
 
 [![Browser library with game covers, Game feeds and filters](docs/screenshots/library.png)](docs/screenshots/library.png)
 
-**Game details:** open a game to see its description, package information and screenshots. Rich details and screenshots use optional IGDB integration.
+**Game details:** open a game to see its description, package information, screenshots and embedded YouTube videos below the screenshots. Rich details and screenshots use optional IGDB integration.
 
 [![Game details with description and screenshot gallery](docs/screenshots/game-details.png)](docs/screenshots/game-details.png)
 
@@ -23,7 +23,7 @@ You can also browse the whole library in a web browser. The server runs as one e
 ## What it does
 
 - **Organizes your packages.** Scans folders and subfolders, reads PS4 titles, versions and minimum firmware, and distinguishes games, updates and DLC.
-- **Adds artwork and details.** Extracts available package covers. Optional IGDB adds descriptions, screenshots, genres, ratings and other game information; downloaded screenshots stay on your server.
+- **Adds artwork and details.** Extracts available package covers. Optional IGDB adds descriptions, screenshots, genres, ratings and other game information; downloaded screenshots stay on your server. Available YouTube videos play in game details.
 - **Keeps the library current.** Scan manually or on a schedule. Unchanged packages and cached materials are reused; missing or damaged images can be repaired. Games appear before optional online details finish.
 - **Shows what is happening.** The web page shows loading and scan progress. Administration has scan controls, settings and a live log.
 - **Feeds your PS4.** Copy a category's Game feed URL into PS4 Games Installer. Downloads support resuming; browser administration uses a separate login.

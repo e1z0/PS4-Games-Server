@@ -9,3 +9,7 @@ progress:not([value]){appearance:none;background:linear-gradient(90deg,#e8ece6 0
 .library .feeds{margin:0 0 22px;padding:0 0 18px;border-top:0;border-bottom:1px solid var(--line)}
 
 .server-log{height:220px;max-height:220px;margin:0;overflow:auto;overflow-anchor:none;border:1px solid var(--line);border-radius:5px}
+
+.videos{margin:22px 0}.video{margin:0 0 20px}.video figcaption{font-size:13px;font-weight:600;margin:0 0 8px;overflow-wrap:anywhere}.video iframe{display:block;width:100%;height:auto;aspect-ratio:16/9;min-height:200px;border:0;border-radius:4px;background:#111}.video>a{display:inline-block;font-size:12px;margin-top:7px}
+
+.shots img{display:block;width:100%;height:auto;aspect-ratio:auto 16/9;object-fit:contain;background:#111}

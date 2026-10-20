@@ -84,8 +84,31 @@ function feedList(cats){
  return d;
 }
 function safeURL(s){try{const u=new URL(s,location.origin);if(['http:','https:'].includes(u.protocol))return u.href}catch{}return ''}
-function showDetails(game){const panel=document.querySelector('#detail-content');panel.replaceChildren(el('h2',game.name),el('p',`${game.title_id||'Homebrew'} · ${game.package_type} · ${game.version} · ${game.min_fw||'Unknown'} firmware`));const metadata=game.igdb||{};if(metadata.summary)panel.append(el('p',metadata.summary));if(metadata.storyline)panel.append(el('p',metadata.storyline));for(const key of ['genres','themes','developers','publishers','game_modes'])if(metadata[key]?.length)panel.append(el('p',`${key.replaceAll('_',' ')}: ${metadata[key].join(', ')}`));const shots=el('div',undefined,'shots');for(const shot of metadata.media?.screenshots||[]){const src=safeURL(shot.url);if(src){const img=el('img');img.src=src;img.loading='lazy';img.alt='Game screenshot';shots.append(img)}}panel.append(shots);if(metadata.relationships){panel.append(el('h3','Related games'));for(const [key,items] of Object.entries(metadata.relationships)){if(Array.isArray(items)&&items.length)panel.append(el('p',`${key.replaceAll('_',' ')}: ${items.map(i=>i.name).join(', ')}`))}}const technical=el('details');technical.append(el('summary','All metadata'),el('pre',JSON.stringify(game,null,2)));panel.append(technical,button('Copy package URL',()=>copy(game.package_url)));document.querySelector('#details').showModal()}
+function youtubeID(video){
+ const valid=id=>typeof id==='string'&&/^[A-Za-z0-9_-]{11}$/.test(id);
+ if(valid(video?.video_id))return video.video_id;
+ try{const u=new URL(video?.url);if(u.protocol!=='https:'&&u.protocol!=='http:')return '';if(u.username||u.password||u.port)return '';let id='';
+  if(u.hostname==='youtu.be')id=u.pathname.slice(1);
+  else if(['youtube.com','www.youtube.com','m.youtube.com','www.youtube-nocookie.com'].includes(u.hostname)){
+   if(u.pathname==='/watch')id=u.searchParams.get('v');
+   else if(/^\/(embed|shorts|live)\//.test(u.pathname))id=u.pathname.split('/')[2];
+  }return valid(id)?id:'';
+ }catch{return ''}
+}
+function appendVideos(panel,videos){
+ if(!Array.isArray(videos))return;
+ const section=el('section',undefined,'videos'),seen=new Set();
+ for(const video of videos){const id=youtubeID(video);if(!id||seen.has(id))continue;seen.add(id);
+  const item=el('figure',undefined,'video'),frame=el('iframe'),name=typeof video?.name==='string'&&video.name.trim()?video.name:'Game video';
+  frame.src='https://www.youtube-nocookie.com/embed/'+id+'?playsinline=1';frame.title=name;frame.loading='lazy';frame.width='640';frame.height='360';frame.referrerPolicy='strict-origin-when-cross-origin';frame.allow='encrypted-media; fullscreen; picture-in-picture';frame.allowFullscreen=true;
+  const watch=el('a','Watch on YouTube');watch.href='https://www.youtube.com/watch?v='+id;watch.target='_blank';watch.rel='noopener noreferrer';
+  item.append(el('figcaption',name),frame,watch);section.append(item);
+ }
+ if(seen.size){section.prepend(el('h3','Videos'));panel.append(section)}
+}
+function showDetails(game){const panel=document.querySelector('#detail-content');panel.replaceChildren(el('h2',game.name),el('p',`${game.title_id||'Homebrew'} · ${game.package_type} · ${game.version} · ${game.min_fw||'Unknown'} firmware`));const metadata=game.igdb||{};if(metadata.summary)panel.append(el('p',metadata.summary));if(metadata.storyline)panel.append(el('p',metadata.storyline));for(const key of ['genres','themes','developers','publishers','game_modes'])if(metadata[key]?.length)panel.append(el('p',`${key.replaceAll('_',' ')}: ${metadata[key].join(', ')}`));const shots=el('div',undefined,'shots');for(const shot of metadata.media?.screenshots||[]){const src=safeURL(shot.url);if(src){const img=el('img');img.src=src;img.loading='lazy';img.alt='Game screenshot';if(Number.isSafeInteger(shot.width)&&Number.isSafeInteger(shot.height)&&shot.width>0&&shot.height>0&&shot.width<=16384&&shot.height<=16384){img.width=shot.width;img.height=shot.height}shots.append(img)}}panel.append(shots);appendVideos(panel,metadata.videos);if(metadata.relationships){panel.append(el('h3','Related games'));for(const [key,items] of Object.entries(metadata.relationships)){if(Array.isArray(items)&&items.length)panel.append(el('p',`${key.replaceAll('_',' ')}: ${items.map(i=>i.name).join(', ')}`))}}const technical=el('details');technical.append(el('summary','All metadata'),el('pre',JSON.stringify(game,null,2)));panel.append(technical,button('Copy package URL',()=>copy(game.package_url)));document.querySelector('#details').showModal()}
 document.querySelector('#close-details').onclick=()=>document.querySelector('#details').close();
+document.querySelector('#details').addEventListener('close',()=>document.querySelector('#detail-content').replaceChildren());
 async function library(){
  document.body.classList.add('library');let cats=await api('library');feedURLs=await api('feeds');const all=[];
  function unpack(){all.length=0;for(const [category,cat]of Object.entries(cats))for(const [url,g]of Object.entries(cat.DATA||{}))all.push({...g,category,package_url:url})}unpack();

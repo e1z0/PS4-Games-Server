@@ -14,6 +14,8 @@ Metadata is shared by Title ID across a game's packages. Default positive-cache 
 
 IGDB credentials live in the protected configuration file. Secret fields are redacted in browser responses; leaving an existing secret input blank retains it. Disable IGDB to stop online enrichment. Adjust cache lifetimes and request spacing through the [configuration reference](docs/configuration.md).
 
+Videos already present in a game's `igdb.videos` metadata appear as embedded YouTube players after its screenshots. No extra lookup or API key is needed. Videos stream directly from YouTube and require internet access; they are not downloaded into application data. Closing the details dialog stops playback. A Watch on YouTube link is available when the uploader or browser prevents embedding.
+
 ## Configuration and environment variables
 
 Runtime settings live in one `config.json`. Use Administration for ordinary edits. The [full configuration reference](docs/configuration.md) documents every JSON field and supported environment variable. [config.example.json](config.example.json) is a reference, not a required installation step.
