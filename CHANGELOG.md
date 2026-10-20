@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Rename the feed section to Game feeds and place it above library filters and games.
+
 - Copy feed/package URLs directly on plain HTTP with a clipboard-command fallback. If browser policy blocks copying, select the URL in place instead of opening another dialog.
 
 - Keep routine encrypted payload-section notices in scan logs instead of counting them as failures/warnings; unreadable metadata/icon warnings remain visible.

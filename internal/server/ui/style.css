@@ -5,3 +5,5 @@
 progress:not([value]){appearance:none;background:linear-gradient(90deg,#e8ece6 0 35%,#678a73 45% 55%,#e8ece6 65%);background-size:220% 100%;animation:waiting 1.3s linear infinite}progress:not([value])::-webkit-progress-bar{background:transparent}progress:not([value])::-moz-progress-bar{background:transparent}@keyframes waiting{from{background-position:100% 0}to{background-position:-100% 0}}@media(prefers-reduced-motion:reduce){progress:not([value]){animation:none;background-position:50% 0}}
 
 .clipboard-buffer{position:fixed;top:0;left:0;width:1px;height:1px;min-height:0;padding:0;border:0;opacity:0;pointer-events:none;font-size:16px}
+
+.library .feeds{margin:0 0 22px;padding:0 0 18px;border-top:0;border-bottom:1px solid var(--line)}

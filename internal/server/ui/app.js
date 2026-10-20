@@ -77,7 +77,7 @@ async function copy(value,source){
 }
 
 function feedList(cats){
- const d=el('div',undefined,'feeds');d.append(el('h2','FPKGi feeds'),el('p','Copy the feed URLs you want to use in FPKGi.','muted'));
+ const d=el('div',undefined,'feeds');d.append(el('h2','Game feeds'),el('p','Copy the feed URLs you want to use in FPKGi.','muted'));
  for(const cat of Object.keys(cats).sort()){
   const row=el('div',undefined,'feed'),i=el('input');i.readOnly=true;i.value=feedURLs[cat]||location.origin+'/feeds/'+encodeURIComponent(cat);i.setAttribute('aria-label',cat+' feed URL');row.append(el('span',cat),i,button('Copy',()=>copy(i.value,i)));d.append(row);
  }
@@ -92,7 +92,7 @@ async function library(){
  const scan=scanProgress();scan.box.hidden=true;content.append(scan.box);
  const tools=el('div',undefined,'toolbar'),search=el('input'),category=el('select'),type=el('select');search.placeholder='Search games or title IDs';search.setAttribute('aria-label','Search library');
  for(const [select,values,label]of [[category,Object.keys(cats).sort(),'All categories'],[type,['game','update','dlc','unknown'],'All package types']]){select.setAttribute('aria-label',label);const o=el('option',label);o.value='';select.append(o);for(const v of values){const option=el('option',v);option.value=v;select.append(option)}}
- tools.append(search,category,type);const count=el('p',undefined,'muted'),grid=el('div',undefined,'grid'),feeds=feedList(cats);content.append(tools,count,grid,feeds);
+ tools.append(search,category,type);const count=el('p',undefined,'muted'),grid=el('div',undefined,'grid'),feeds=feedList(cats);content.append(feeds,tools,count,grid);
  function draw(){grid.replaceChildren();const list=all.filter(g=>(!category.value||g.category===category.value)&&(!type.value||g.package_type===type.value)&&`${g.name} ${g.title_id} ${g.content_id}`.toLowerCase().includes(search.value.toLowerCase()));count.textContent=`${list.length} packages`;
  for(const g of list){const card=button('',()=>showDetails(g),'card'),img=el('img');img.src=safeURL(g.cover_url)||'/fallback.svg';img.loading='lazy';img.alt=g.name;img.onerror=()=>{img.onerror=null;img.src='/fallback.svg'};const text=el('div');text.append(el('span',g.package_type,'badge'),el('h3',g.name),el('small',`${g.title_id||'Homebrew'} · v${g.version}`));card.append(img,text);grid.append(card)}
  if(!all.length){const empty=el('div',undefined,'empty');empty.append(el('h3','No packages published yet'),el('p','If a scan is running, its progress appears above. Otherwise, add your package folder and start a scan in Administration.'));const link=el('a','Open Administration');link.href='/admin';empty.append(link);grid.append(empty)}else if(!list.length)grid.append(el('p','No matches. Try another search or clear the filters.','empty'));
