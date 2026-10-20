@@ -16,3 +16,5 @@ Windows service verification: the hosted Windows job passed both handler tests a
 Screenshot validation now persists across scans/restarts; pre-existing caches need one validating pass to build the index. Normal scans still discover additions/removals; fresh metadata and unchanged screenshots are reused.
 
 Consumer docs now include reviewed screenshots and a password-free production-style NAS example; EXPERT.md and DEVELOPER.md separate advanced operations from development. Screenshots should be refreshed when visible UI changes make them stale.
+
+Embedded game videos are delivered and verified: existing catalog data, responsive YouTube players after screenshots, lazy loading, dialog-close cleanup and real playback on the NAS. Videos remain streamed from YouTube; no separate video download cache is introduced.
