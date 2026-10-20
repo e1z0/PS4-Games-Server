@@ -54,3 +54,5 @@ Delivered to the authorized media NAS and Docker Hub from dfa89fd. Configuration
 ## Clipboard behavior on LAN HTTP — 2026-10-20
 
 The Copy button previously relied only on the secure-context Clipboard API, so plain HTTP opened a manual-copy dialog. Added a synchronous clipboard-command fallback, preserving focus and supporting package details inside a modal. If both browser methods are blocked, select the URL in place with a keyboard-copy hint; no extra dialog is opened and success is only reported after copying succeeds.
+
+Clipboard fix deployed to media and Docker Hub from 2db09ee. Live Chromium paste-back verified feed and package copying on the insecure HTTP origin, with no extra dialogs. Browser-blocked copying selected the URL in place. Health, native CI and release/container builds passed.
