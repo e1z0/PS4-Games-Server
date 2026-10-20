@@ -1,5 +1,7 @@
 # Configuration reference
 
+For advanced setup and maintenance, start with [EXPERT.md](../EXPERT.md). This page is the complete field reference.
+
 One versioned JSON file stores all runtime configuration. Null values and unknown configuration fields are rejected. Use `-config /absolute/path/config.json` on every CLI command to select it. Generated application data is separate. `config.example.json` is a readable starting point; starting without a file allows all environment seeds. Copying an example with empty fields makes those fields present and therefore prevents their environment seeds from replacing them.
 
 | JSON field | Default / meaning | Environment seed |
@@ -37,7 +39,7 @@ Directories beneath data_dir:
 - `covers/<category>/...`: extracted/custom PNG/JPEG covers.
 - `covers/igdb/screenshots/<TitleID>/...`: local screenshots, repaired when invalid.
 - `scan-cache.json`: versioned metadata and icon offsets, without package data.
-- `metadata-cache.json`: positive/negative IGDB results and expiration.
+- `metadata-cache.json`: positive/negative IGDB results, expiration and persisted screenshot validation fingerprints.
 - `metadata-overrides.json`: objects keyed by Title ID, merged recursively into rich metadata.
 
 Atomic temporary-file replacement protects persistent writes and preserves unchanged timestamps. Configuration is mode 0600 and generated directories 0700 on systems honoring Unix permissions. Use filesystem ACLs on Windows. IGDB secrets must remain usable for API requests and are stored in the protected configuration file. No internal JSON file is exposed by static routing.
@@ -50,6 +52,6 @@ Live mapping edits publish with the next completed scan, preserving existing dow
 
 Feed links copied from the UI use `/feeds/<category>`, so names such as `admin` do not conflict with application pages. Existing `/<category>` and `/<category>.json` aliases remain available where they do not collide with a page route. Images are limited to 32 MiB and 16 megapixels; screenshots use a 25 MiB download limit. Request spacing and cache/schedule intervals must fit a Go duration; configuration rejects integer values that would overflow.
 
-The FPKGi configuration clipboard helper lowercases client category labels and checks the client's limit of 32 sources including games, 32 characters per label, distinct labels ignoring case, and the reserved ps5 label. Feed names remain unchanged. If a collection exceeds those client limits, individual feed URLs can be copied into selected, shorter client category labels.
+For FPKGi clients, choose at most 32 sources including games, labels of at most 32 characters, distinct labels ignoring case, and no reserved ps5 label. Individual Game feed URLs can be copied into selected client labels. PS4 Games Installer accepts the Games JSON URL directly in its settings.
 
 Windows services: `service install [-config config.json]`, `service start`, `service stop`, `service status`, `service uninstall`. Service commands use an elevated terminal. Installation requires completed setup, captures absolute EXE/config paths and the current working directory, and registers Automatic (Delayed Start) under Local Service. Grant folder access before starting. See [WINDOWS.md](../WINDOWS.md). Running the Windows EXE with no arguments uses its own folder; explicit CLI arguments use the terminal working directory.

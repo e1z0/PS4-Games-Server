@@ -4,7 +4,7 @@ This audit follows the supplied native-Go rewrite plan. Completion means the imp
 
 | Plan requirement | Authoritative implementation / verification |
 | --- | --- |
-| Baseline 88a969c, independent repository, no importer | README and PROGRESS record the exact baseline SHA and its 15 passing Linux tests; separate Git root/history here; original sibling status remains unchanged. |
+| Baseline 88a969c, independent repository, no importer | DEVELOPER and PROGRESS record the exact baseline SHA and its 15 passing Linux tests; separate Git root/history here; original sibling status remains unchanged. |
 | GPL-2.0-only, SPDX source, third-party notices | LICENSE, source headers, THIRD_PARTY_NOTICES.md; generated PNG has a licensed Go source generator. |
 | One native executable, CGO=0, stdlib HTTP, embedded assets, no Node/Python/Orbis/database/frontend build | go.mod pins x/sys for native Windows service integration; cmd/ps4-server is the application entrypoint; server assets use go:embed; Make build/release and Docker build force CGO_ENABLED=0. |
 | Config/parser/scanner/catalogs/metadata/HTTP/UI responsibilities | internal packages and docs/architecture.md; SOURCE_MAP.md covers every source/document/config file. |
@@ -26,7 +26,7 @@ This audit follows the supplied native-Go rewrite plan. Completion means the imp
 | Plaintext credentials via JSON/Compose become salted hashes; protected/redacted storage | PBKDF2-SHA256; config storage mode 0600; redaction tests and Compose authenticated smoke; test passwords never persist as plaintext. |
 | Random setup token logged once, gated setup, invalidation; unattended seeded launch | Setup/open + finish lifecycle tests; actual wizard smoke; Compose unattended startup and restart smoke. Token lives only in memory and is printed in a URL fragment. |
 | Beginner wizard credentials/folders/data/public URL/scheduling/IGDB/first scan/copyable FPKGi | Compact six-step wizard; browser smoke including Back, directory selection and login/first scan. Individual feed URL copying remains; the full-configuration copy button was removed at the user’s request. |
-| Authenticated native directory browsing/validation with Docker explanation | Directory API, CheckPath, root/drive list, wizard help and docs/setup.md; TestDirectoryBrowserStartsAtNativePath and unreadable-mapping test. |
+| Authenticated native directory browsing/validation with Docker explanation | Directory API, CheckPath, root/drive list, wizard help and EXPERT.md; TestDirectoryBrowserStartsAtNativePath and unreadable-mapping test. |
 | Responsive library search/category/type/covers/details/feeds | Embedded vanilla UI and Chromium desktop/mobile smoke; data enters DOM through textContent; canonical /feeds links avoid reserved page names. |
 | Admin mappings/settings/start/cancel/status/logs/overrides/restart notices | Admin API/UI and server tests; TestSetupListenerChangesRequireRestart; pending-mapping download preservation test. |
 | Apply mapping/scan changes between jobs | Job captures config; TestPendingMappingEditPreservesPublishedDownloads and scheduler test; restart prunes disabled/repointed cached roots and cleans retired catalogs. |
@@ -38,8 +38,8 @@ This audit follows the supplied native-Go rewrite plan. Completion means the imp
 | Configurable version tags, nulldevil image, amd64/arm64, externally supplied auth, explicit stable latest | Make upload creates/reuses its named Buildx builder and uses both platforms, IMAGE/TAG/VERSION and externally managed login; STABLE=1 adds latest, normal upload never does. |
 | Six native archives each with executable/example/license/setup | tools/release builds Linux/macOS/Windows amd64/arm64 tar.gz/zip; actual archive contents inspected. |
 | Multi-stage, non-root, persistent config/data, read-only packages, UID/GID and health | Dockerfile/compose.yaml; native amd64 container smoke, inspected arm64 image and two-platform OCI index; no emulation needed for build. |
-| Docker only for containers; Go sufficient for native build/tests, executable sufficient at runtime | Native CGO-free builds and archives; x/sys is compiled into Windows builds with no runtime installation. Go race detector additionally requires its host C compiler, documented in README. |
+| Docker only for containers; Go sufficient for native build/tests, executable sufficient at runtime | Native CGO-free builds and archives; x/sys is compiled into Windows builds with no runtime installation. Go race detector additionally requires its host C compiler, documented in DEVELOPER.md. |
 | Mock/synthetic tests, formatting/vet/tests/race/source map; native CI and release cross-compilation | make check, 49 native test functions at audit time plus fuzz seed corpus; native OS workflow matrix and six-target release/OCI build job. |
-| Smoke actual executable and Compose including restart/non-root/health/downloads; record limits | docs/validation.md includes commands, outcomes and cleanup. No console, real IGDB account, registry push, hosted CI or successful native Windows/macOS execution is claimed. |
+| Smoke actual executable and Compose including restart/non-root/health/downloads; record limits | docs/validation.md records commands, outcomes, cleanup, hosted native checks, registry publishing and NAS smoke results. Console installation remains an external validation check. |
 
 Future hardware/account verification does not replace any local gate. The original console packages are never shipped; synthetic fixtures are generated in tests. See the linked package tests for reproducible local evidence and validation.md for execution-specific results.

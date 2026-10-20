@@ -55,7 +55,13 @@ This permits port 8080 from your local subnet on Private networks ([Microsoft fi
 
 Test `http://192.168.1.20:8080/library` from another computer or phone on that network. If your PC's address changes, update Public URL in administration; a DHCP reservation in your router helps keep the address stable.
 
-## 4. Add feed URLs to FPKGi
+## 4. Connect PS4 Games Installer
+
+Open the server library and click **Copy** beside the `games` URL under **Game feeds**. On your PS4, open [PS4 Games Installer](https://github.com/e1z0/PS4-Games-Installer) → **Options → Settings**, enter the URL as **Games JSON URL**, choose **Test connection**, then **Save settings**.
+
+For this Windows example, use `http://192.168.1.20:8080/feeds/games`, replacing the address with your PC's actual LAN address. Open a game in the web library to see its descriptions and screenshots when IGDB is enabled.
+
+### FPKGi-compatible clients
 
 Open the library and use **Copy** beside each feed URL you want to use. For the example above, the `content_urls` portion of your FPKGi configuration is:
 

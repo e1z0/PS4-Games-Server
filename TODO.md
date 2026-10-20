@@ -14,3 +14,5 @@ Operational limits: directory symlinks inside mappings are not walked; contained
 Windows service verification: the hosted Windows job passed both handler tests and an elevated real SCM install/start/stop/restart/uninstall smoke. The beginner guide and Windows archives include the tested command sequence. An actual reboot remains a separate follow-up.
 
 Screenshot validation now persists across scans/restarts; pre-existing caches need one validating pass to build the index. Normal scans still discover additions/removals; fresh metadata and unchanged screenshots are reused.
+
+Consumer docs now include reviewed screenshots and a password-free production-style NAS example; EXPERT.md and DEVELOPER.md separate advanced operations from development. Screenshots should be refreshed when visible UI changes make them stale.

@@ -8,7 +8,9 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `.github/workflows/ci.yml`
 - `.gitignore`
 - `CHANGELOG.md`
+- `DEVELOPER.md`
 - `Dockerfile`
+- `EXPERT.md`
 - `LICENSE`
 - `Makefile`
 - `PROGRESS.md`
@@ -27,8 +29,12 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `docs/architecture.md`
 - `docs/configuration.md`
 - `docs/parity.md`
+- `docs/screenshots/admin.png`
+- `docs/screenshots/game-details.png`
+- `docs/screenshots/library.png`
 - `docs/setup.md`
 - `docs/validation.md`
+- `examples/compose.nas.yml`
 - `go.mod`
 - `go.sum`
 - `internal/config/config.go`

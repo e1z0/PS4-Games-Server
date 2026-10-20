@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-only
+services:
+  ps4-server:
+    image: nulldevil/ps4-games-server:0.1.0-dev
+    container_name: ps4-games-server
+    user: "1026:100"
+    ports:
+      - "3000:8080"
+    environment:
+      PS4_LISTEN: :8080
+      PS4_DATA_DIR: /data
+      PS4_PUBLIC_URL: http://192.168.1.20:3000
+      PS4_SCAN_STARTUP: "true"
+      PS4_SCAN_INTERVAL_MINUTES: "5"
+      PS4_MAPPINGS: '[{"id":"games","path":"/packages","category":"games","enabled":true}]'
+    volumes:
+      - /volume1/Games/_PS4/games:/packages:ro
+      - /volume1/docker/dockers/ps4gamesserver/config:/config
+      - /volume1/docker/dockers/ps4gamesserver/data:/data
+    restart: unless-stopped

@@ -1,5 +1,7 @@
 # Architecture and source guide
 
+[DEVELOPER.md](../DEVELOPER.md) covers builds, checks and releases. [README.md](../README.md) covers consumer setup; [EXPERT.md](../EXPERT.md) covers advanced operations. The published-image NAS example lives in examples/compose.nas.yml; docs/screenshots contains the rendered library, details and credential-free example admin captures.
+
 `cmd/ps4-server/main.go` is the single application entrypoint. Its CLI selects serving, one-shot scans, initialization/validation, password reset, health and version. Signal cancellation shuts down HTTP and scan jobs. `main_test.go` exercises command behavior.
 
 | Package / location | Responsibility and tests |
