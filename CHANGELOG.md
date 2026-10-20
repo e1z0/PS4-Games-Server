@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Consolidate administration messages into one visible Server log that follows the newest line as messages arrive.
+
 - Rename the feed section to Game feeds and place it above library filters and games.
 
 - Copy feed/package URLs directly on plain HTTP with a clipboard-command fallback. If browser policy blocks copying, select the URL in place instead of opening another dialog.

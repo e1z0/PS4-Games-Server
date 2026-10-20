@@ -92,3 +92,7 @@ Published clipboard fix source 2db09ee to Docker Hub (amd64/arm64), index sha256
 ## Game feeds placement — 2026-10-20
 
 Renamed the heading to Game feeds and moved the library feed section above search/category/type filters and all game cards. Chromium verified the deployed page at 1280px and 390px: feed bounds precede filters/cards, no horizontal overflow, all 111 games retained, individual Copy retained and no page errors. Native build, JavaScript syntax, source-map checks and six release builds passed. Published source 65605c3 to Docker Hub (amd64/arm64), index sha256:805e75064e0cbab25a215925f1a267597f25badfd744f827b4172f564a61b0b0, and recreated the authorized NAS deployment; binary health passed.
+
+## Unified administration log — 2026-10-20
+
+Chromium with mocked authenticated API responses verified one visible Server log, warning messages displayed once, initial and new-message scrolling to the last line, unchanged polling preserving a manually scrolled position, and mobile layout without page errors. JavaScript syntax, native build, source-map coverage and whitespace checks passed.
