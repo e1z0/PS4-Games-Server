@@ -96,3 +96,5 @@ Published 14b1ec4 to Docker Hub and deployed it to media. Exact footer text, ser
 ## Embedded game videos — 2026-10-20
 
 Added a Videos section after screenshots using existing igdb.videos fields, including direct IDs and supported YouTube URL forms. Valid IDs are deduplicated and only the fixed youtube-nocookie.com embed host is allowed. Players load lazily, provide fullscreen and direct YouTube links, and are removed when the dialog closes (including Escape). Per-frame origin-only referrers support YouTube identification while keeping the application's no-referrer default. Updated README/EXPERT descriptions.
+
+Full Go checks and browser regression checks passed. Real YouTube playback passed after reserving screenshot layout space to avoid slow image loads shifting the player. Browser coverage includes source filtering, lazy loading/referrer/CSP, phone layout and dialog-close cleanup.
