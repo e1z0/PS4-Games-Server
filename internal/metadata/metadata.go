@@ -32,6 +32,7 @@ type Entry struct {
 type Cache struct {
 	Version int              `json:"version"`
 	Titles  map[string]Entry `json:"titles"`
+	Images  ps4.ImageCache   `json:"images,omitempty"`
 }
 type Service struct {
 	HTTP        *http.Client
@@ -273,13 +274,25 @@ func (s *Service) Restore(ctx context.Context, c config.Config, entries []scanne
 	c.IGDB.Enabled = false
 	return s.enrich(ctx, c, entries, nil, false)
 }
-func (s *Service) enrich(ctx context.Context, c config.Config, entries []scanner.Cached, progress func(int, int, string), validateImages bool) (map[string]Object, []string, error) {
+func (s *Service) enrich(ctx context.Context, c config.Config, entries []scanner.Cached, progress func(int, int, string), validateImages bool) (result map[string]Object, warnings []string, resultErr error) {
 	cache := Cache{Version: 1, Titles: map[string]Entry{}}
 	if e := storage.Read(filepath.Join(c.DataDir, "metadata-cache.json"), &cache); e != nil && !errors.Is(e, os.ErrNotExist) {
 		return nil, nil, errors.New("invalid metadata cache")
 	}
 	if cache.Version != 1 || cache.Titles == nil {
 		return nil, nil, errors.New("unsupported metadata cache")
+	}
+	if cache.Images == nil {
+		cache.Images = ps4.ImageCache{}
+	}
+	// Preserve completed lookups and validation stamps even when a later request
+	// is cancelled. Restore is read-only and never records unvalidated images.
+	if validateImages {
+		defer func() {
+			if err := storage.JSON(filepath.Join(c.DataDir, "metadata-cache.json"), cache); err != nil && resultErr == nil {
+				resultErr = err
+			}
+		}()
 	}
 	overrides, e := LoadOverrides(c.DataDir)
 	if e != nil {
@@ -303,18 +316,43 @@ func (s *Service) enrich(ctx context.Context, c config.Config, entries []scanner
 	}
 	sort.Strings(ids)
 	out := map[string]Object{}
-	warnings := []string{}
+	warnings = []string{}
+	pending := map[string]bool{}
+	total, done := 0, 0
+	for _, id := range ids {
+		if ctx.Err() != nil {
+			return nil, warnings, ctx.Err()
+		}
+		entry, exists := cache.Titles[id]
+		work := s.needsLookup(c, entry, exists, titles[id])
+		if validateImages && c.IGDB.Enabled {
+			data := metadataFor(entry, overrides[id])
+			for _, x := range arr(obj(data["media"])["screenshots"]) {
+				rel, dest, ok := screenshotPath(c, id, str(obj(x)["image_id"]))
+				if ok && !cache.Images.Valid(rel, dest) {
+					work = true
+				}
+			}
+		}
+		pending[id] = work
+		if work {
+			total++
+		}
+	}
+	if progress != nil && total == 0 {
+		progress(0, total, "")
+	}
 	networkFailed := false
-	for index, id := range ids {
-		if progress != nil {
-			progress(index, len(ids), titles[id])
+	for _, id := range ids {
+		if progress != nil && pending[id] {
+			progress(done, total, titles[id])
 		}
 		if ctx.Err() != nil {
 			return nil, warnings, ctx.Err()
 		}
 		entry, exists := cache.Titles[id]
 		title := titles[id]
-		if (!exists || !s.Now().Before(entry.Expires)) && title != "" && c.IGDB.Enabled && c.IGDB.ClientID != "" && c.IGDB.ClientSecret != "" && !networkFailed {
+		if s.needsLookup(c, entry, exists, title) && !networkFailed {
 			m, err := s.lookup(ctx, c.IGDB, title)
 			if err != nil {
 				networkFailed = true
@@ -326,40 +364,63 @@ func (s *Service) enrich(ctx context.Context, c config.Config, entries []scanner
 				}
 				entry = Entry{Expires: s.Now().Add(time.Duration(days) * 24 * time.Hour), Found: m != nil, Data: m}
 				cache.Titles[id] = entry
+				// Checkpoint before downloading screenshots or looking up another
+				// title, so an interrupted initial scan does not fetch it again.
+				if err := storage.JSON(filepath.Join(c.DataDir, "metadata-cache.json"), cache); err != nil {
+					return nil, warnings, err
+				}
 			}
 		}
-		var data Object
-		if entry.Found {
-			data = entry.Data
-		}
-		if override := overrides[id]; override != nil {
-			data = merge(data, override)
-			if data["schema_version"] == nil {
-				data["schema_version"] = 1
-			}
-		}
+		data := metadataFor(entry, overrides[id])
 		if data != nil { // Clone before rewriting cached screenshot URLs for this listener.
 			b, _ := json.Marshal(data)
 			data = nil
 			json.Unmarshal(b, &data)
-			if err := s.screenshots(ctx, c, id, data, validateImages); err != nil {
+			if err := s.screenshots(ctx, c, id, data, validateImages, cache.Images); err != nil {
 				warnings = append(warnings, "screenshot repair incomplete for "+id)
 			}
 			out[id] = data
+		}
+		if pending[id] {
+			done++
+			if progress != nil {
+				progress(done, total, "")
+			}
 		}
 	}
 	if ctx.Err() != nil {
 		return nil, warnings, ctx.Err()
 	}
-	if progress != nil {
-		progress(len(ids), len(ids), "")
-	}
-	if e = storage.JSON(filepath.Join(c.DataDir, "metadata-cache.json"), cache); e != nil {
-		return out, warnings, e
-	}
 	return out, warnings, nil
 }
-func (s *Service) screenshots(ctx context.Context, c config.Config, id string, m Object, validate bool) error {
+
+func (s *Service) needsLookup(c config.Config, entry Entry, exists bool, title string) bool {
+	return (!exists || !s.Now().Before(entry.Expires)) && title != "" && c.IGDB.Enabled && c.IGDB.ClientID != "" && c.IGDB.ClientSecret != ""
+}
+
+func metadataFor(entry Entry, override Object) Object {
+	var data Object
+	if entry.Found {
+		data = entry.Data
+	}
+	if override != nil {
+		data = merge(data, override)
+		if data["schema_version"] == nil {
+			data["schema_version"] = 1
+		}
+	}
+	return data
+}
+
+func screenshotPath(c config.Config, id, imageID string) (string, string, bool) {
+	if !config.SafeName.MatchString(id) || !config.SafeName.MatchString(imageID) {
+		return "", "", false
+	}
+	rel := "igdb/screenshots/" + id + "/" + imageID + ".jpg"
+	return rel, filepath.Join(c.CoversDir(), filepath.FromSlash(rel)), true
+}
+
+func (s *Service) screenshots(ctx context.Context, c config.Config, id string, m Object, validate bool, images ps4.ImageCache) error {
 	if !config.SafeName.MatchString(id) {
 		return nil
 	}
@@ -367,14 +428,13 @@ func (s *Service) screenshots(ctx context.Context, c config.Config, id string, m
 	for _, x := range arr(obj(m["media"])["screenshots"]) {
 		v := obj(x)
 		imageID := str(v["image_id"])
-		if !config.SafeName.MatchString(imageID) {
+		rel, dest, ok := screenshotPath(c, id, imageID)
+		if !ok {
 			continue
 		}
-		rel := "igdb/screenshots/" + id + "/" + imageID + ".jpg"
-		dest := filepath.Join(c.CoversDir(), filepath.FromSlash(rel))
 		valid := false
 		if validate {
-			valid = ps4.ValidImageFile(dest)
+			valid = images.Valid(rel, dest)
 		} else {
 			info, err := os.Stat(dest)
 			valid = err == nil && info.Mode().IsRegular() && info.Size() > 0
@@ -399,7 +459,7 @@ func (s *Service) screenshots(ctx context.Context, c config.Config, id string, m
 				last = e
 				continue
 			}
-			valid = true
+			valid = images.Valid(rel, dest)
 		}
 		if valid {
 			v["source_url"] = imageURL(imageID)

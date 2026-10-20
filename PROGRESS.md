@@ -68,3 +68,7 @@ Feed placement deployed to media and Docker Hub from 65605c3. Live browser check
 Replaced the separate warning list and collapsed recent-message log with one visible Server log directly below scan controls. Server warnings already flow through the shared timestamped log, so messages are shown once. Changed log content scrolls to its last line; unchanged polls preserve the current view and selection.
 
 Unified log deployed to Docker Hub and media from eddf968. Browser checks against deployed assets (mocked authenticated API), backend tests, release builds and NAS binary health passed.
+
+## Reusing completed scan and metadata work — 2026-10-20
+
+NAS inspection found fresh metadata entries (30-day positive / 7-day negative caches) but every five-minute scan decoded every screenshot again and presented all title IDs as fetching work. Added persistent relative-path image validation fingerprints (size, modification time, platform change time), retained full validation and repair for new/changed files, and count only due lookups or screenshot repairs in metadata progress. Existing caches warm their validation index once. Successful lookups checkpoint immediately; cancellation also saves completed image validation. Unchanged packages retain parser reuse without repeating encrypted-section notices. Logs report read/reused counts and cache-only metadata completion.

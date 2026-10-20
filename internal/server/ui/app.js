@@ -43,15 +43,15 @@ function scanProgress(){
  bar.setAttribute('aria-label','Scan progress');top.append(title,count);box.append(top,bar,note,current);
  return {box,update(j,packages){
   const phase=j.phase|| (j.running?'discovering':'idle');
-  const titles={idle:'Ready to scan',discovering:'Finding package files',reading:'Reading packages',publishing:'Saving the library',metadata:'Fetching game details',complete:'Scan complete',cancelled:'Scan stopped',failed:'Scan could not finish'};
+  const titles={idle:'Ready to scan',discovering:'Finding package files',reading:'Checking package files',publishing:'Saving the library',metadata:'Checking game details',complete:'Scan complete',cancelled:'Scan stopped',failed:'Scan could not finish'};
   title.textContent=titles[phase]||'Scanning';
   let done=0,total=0;
   if(phase==='metadata'){done=j.metadata_done||0;total=j.metadata_total||0;count.textContent=total?`${done} of ${total} titles`:''}
-  else if(phase==='reading'){done=j.visited||0;total=j.total||0;count.textContent=`${done}${total?' of '+total:''} packages read`}
+  else if(phase==='reading'){done=j.visited||0;total=j.total||0;count.textContent=`${done}${total?' of '+total:''} packages checked`}
   else count.textContent=`${packages||0} packages in library`;
   if(!j.running){bar.max=1;bar.value=phase==='failed'?0:1}
   else if(total){bar.max=total;bar.value=Math.min(done,total)}else bar.removeAttribute('value');
-  note.textContent=phase==='metadata'?'Packages are available now. Optional details and screenshots are being added; you can keep browsing.':phase==='discovering'?'Looking through your enabled folders, including subfolders.':phase==='reading'?'Reading package headers and covers. Game files are not copied or hashed.':phase==='cancelled'?'Packages already published remain available. You can start another scan when ready.':phase==='idle'?'Add a folder, then choose Scan now.':phase==='complete'?(j.errors?.length||j.warnings?'Finished with warnings. See Administration for details.':'Your library is up to date.'):phase==='failed'?'Check the errors below or in Administration. Existing published packages remain available.':'Updating catalogs and the local cache.';
+  note.textContent=phase==='metadata'?'Packages are available now. Saved details and screenshots are reused; only missing, changed or expired data needs work.':phase==='discovering'?'Looking through your enabled folders, including subfolders.':phase==='reading'?'Unchanged packages use saved headers and covers. Only new or changed packages are read.':phase==='cancelled'?'Packages already published remain available. You can start another scan when ready.':phase==='idle'?'Add a folder, then choose Scan now.':phase==='complete'?(j.errors?.length||j.warnings?'Finished with warnings. See Administration for details.':'Your library is up to date.'):phase==='failed'?'Check the errors below or in Administration. Existing published packages remain available.':'Updating catalogs and the local cache.';
   current.textContent=j.current||'';
  }};
 }

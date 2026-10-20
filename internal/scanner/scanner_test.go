@@ -514,3 +514,34 @@ func TestRoutineEncryptedSectionsAreInformational(t *testing.T) {
 		t.Fatal("package details lost")
 	}
 }
+
+func TestReusedPackageDoesNotRepeatEncryptedNotices(t *testing.T) {
+	c, _ := fixture(t)
+	e, _ := New(c)
+	inspect := e.inspect
+	e.inspect = func(path string) (ps4.Package, error) {
+		p, err := inspect(path)
+		p.Warnings = append(p.Warnings, "1 additional encrypted CNT entries")
+		return p, err
+	}
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(e.Logs(), "\n"), "additional encrypted CNT entries") {
+		t.Fatal("initial notice missing")
+	}
+	restarted, err := New(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted.inspect = func(string) (ps4.Package, error) {
+		t.Fatal("unchanged package parsed again")
+		return ps4.Package{}, nil
+	}
+	if err := restarted.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	if restarted.Status().Reused != 1 || strings.Contains(strings.Join(restarted.Logs(), "\n"), "additional encrypted CNT entries") {
+		t.Fatal("reuse repeated parsed notices", restarted.Status(), restarted.Logs())
+	}
+}

@@ -98,3 +98,9 @@ Renamed the heading to Game feeds and moved the library feed section above searc
 Chromium with mocked authenticated API responses verified one visible Server log, warning messages displayed once, initial and new-message scrolling to the last line, unchanged polling preserving a manually scrolled position, and mobile layout without page errors. JavaScript syntax, native build, source-map coverage and whitespace checks passed.
 
 Published source eddf968 as Docker Hub 0.1.0-dev for amd64/arm64, index sha256:87a15f551aee8cc75cb7656c78d3124669e4c6dc34786f09352d9f9f245c0a06. Recreated the authorized NAS container with existing settings/mounts; binary health passed. Repeated all log browser checks using the actual deployed HTML/JavaScript/CSS and mocked authenticated API responses; passed. Server package tests and six native release archive builds passed.
+
+## Incremental metadata and image reuse — 2026-10-20
+
+Compared with the Node server's fresh positive/negative cache skips and existing-screenshot checks. Authorized NAS inspection showed 98 fresh metadata cache entries (86 positive, with expiry dates October 27 through November 19), a five-minute schedule, and a visible 47/98 metadata phase despite no due cache expiry. Native enrichment was decoding every cached screenshot and counting every title as update work.
+
+Added persisted validation fingerprints, per-successful-lookup checkpoints and cancellation flushing. Regression tests verify zero metadata/image HTTP requests after a service restart with fresh materials, zero due progress for cache hits, image repair after changes/removal, preserved completed lookups after cancellation, and package-parser reuse without repeated encrypted-section notices. make check passed (format, vet, all tests, race tests, source-map). Native build, JavaScript syntax, whitespace and administration-log browser checks passed.

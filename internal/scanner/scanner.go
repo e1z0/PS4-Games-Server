@@ -15,7 +15,6 @@ import (
 	"ps4server/internal/config"
 	"ps4server/internal/ps4"
 	"ps4server/internal/storage"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -188,23 +187,8 @@ func (e *Engine) issue(s string) {
 	e.mu.Unlock()
 	e.Log(s)
 }
-func stamp(s fs.FileInfo) string {
-	v := reflect.ValueOf(s.Sys())
-	if v.Kind() == reflect.Pointer {
-		v = v.Elem()
-	}
-	if v.IsValid() && v.Kind() == reflect.Struct {
-		for _, key := range []string{"Ctim", "Ctimespec", "ChangeTime"} {
-			f := v.FieldByName(key)
-			if f.IsValid() && f.CanInterface() {
-				return fmt.Sprint(f.Interface())
-			}
-		}
-	}
-	return ""
-}
 func same(v Cached, s fs.FileInfo) bool {
-	return v.Size == s.Size() && v.Modified == s.ModTime().UnixNano() && v.Change == stamp(s)
+	return v.Size == s.Size() && v.Modified == s.ModTime().UnixNano() && v.Change == storage.ChangeStamp(s)
 }
 func key(m, rel string) string { return m + "/" + rel }
 func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result error) {
@@ -324,7 +308,7 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 			}
 			prev, exists := oldMap[key(m.ID, rel)]
 			reuse := exists && prev.Root == m.Path && same(prev, s) && !force
-			v := Cached{Canonical: canonical, Mapping: m.ID, Root: m.Path, Relative: rel, Category: m.Category, Size: s.Size(), Modified: s.ModTime().UnixNano(), Change: stamp(s), Release: s.ModTime().Format("01-02-2006")}
+			v := Cached{Canonical: canonical, Mapping: m.ID, Root: m.Path, Relative: rel, Category: m.Category, Size: s.Size(), Modified: s.ModTime().UnixNano(), Change: storage.ChangeStamp(s), Release: s.ModTime().Format("01-02-2006")}
 			if reuse {
 				v.Package = prev.Package
 				v.Release = prev.Release
@@ -353,6 +337,9 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 				continue
 			}
 			for _, warning := range v.Package.Warnings {
+				if reuse && strings.HasSuffix(warning, " additional encrypted CNT entries") {
+					continue
+				}
 				if strings.HasSuffix(warning, " additional encrypted CNT entries") {
 					// Encrypted payload sections are routine in otherwise readable
 					// PS4 packages. Report them without flagging a broken scan.
@@ -411,7 +398,7 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 	if err := e.publish(c, next, old, meta); err != nil {
 		return err
 	}
-	e.Log(fmt.Sprintf("%d packages available in the library", len(next)))
+	e.Log(fmt.Sprintf("%d packages available in the library (%d read, %d unchanged)", len(next), e.Status().Inspected, e.Status().Reused))
 	if e.Enricher == nil {
 		return nil
 	}
@@ -432,6 +419,13 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 	}
 	for _, warning := range warnings {
 		e.issue(warning)
+	}
+	if _, ok := e.Enricher.(ProgressEnricher); ok && err == nil && ctx.Err() == nil {
+		if total := e.Status().MetadataTotal; total == 0 {
+			e.Log("Game details and screenshots reused from cache; no updates needed")
+		} else {
+			e.Log(fmt.Sprintf("Game details: %d titles needed updates or screenshot repair; other titles reused", total))
+		}
 	}
 	if ctx.Err() != nil {
 		return ctx.Err()

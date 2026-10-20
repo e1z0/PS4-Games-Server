@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Reuse persisted screenshot validation when file fingerprints are unchanged, checkpoint completed IGDB lookups before downloading materials, exclude cache hits from update progress, and avoid repeating encrypted-section notices for unchanged packages.
+
 - Consolidate administration messages into one visible Server log that follows the newest line as messages arrive.
 
 - Rename the feed section to Game feeds and place it above library filters and games.

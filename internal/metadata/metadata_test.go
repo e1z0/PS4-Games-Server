@@ -85,7 +85,16 @@ func TestCacheRenewalOfflineOverridesAndRepair(t *testing.T) {
 		t.Fatal(out, warn, e, tokens.Load(), queries.Load())
 	}
 	q := queries.Load()
-	s.Enrich(context.Background(), c, entries)
+	// A fresh service must reuse both metadata and image validation after restart.
+	restarted := New()
+	restarted.TokenURL, restarted.GamesURL, restarted.ImageBase = s.TokenURL, s.GamesURL, s.ImageBase
+	cachedProgress := [][2]int{}
+	restarted.EnrichWithProgress(context.Background(), c, entries, func(done, total int, current string) {
+		cachedProgress = append(cachedProgress, [2]int{done, total})
+	})
+	if len(cachedProgress) != 1 || cachedProgress[0] != [2]int{0, 0} {
+		t.Fatal("cached titles appeared as fetch work", cachedProgress)
+	}
 	if queries.Load() != q || images.Load() != 1 {
 		t.Fatal("cache not used")
 	}
@@ -311,5 +320,50 @@ func TestStartupRestoreDefersImageValidationAndNetwork(t *testing.T) {
 	shot = obj(arr(obj(out["CUSA12345"]["media"])["screenshots"])[0])
 	if shot["cached"] != false || calls != 0 {
 		t.Fatal("normal scan skipped validation or performed offline network work", shot, calls)
+	}
+}
+
+func TestCancelledBatchKeepsCompletedLookups(t *testing.T) {
+	var queries atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			json.NewEncoder(w).Encode(Object{"access_token": "token", "expires_in": 3600})
+			return
+		}
+		queries.Add(1)
+		json.NewEncoder(w).Encode([]Object{{"id": 123, "name": "Synthetic Game", "summary": "Saved before cancellation"}})
+	}))
+	defer ts.Close()
+	c := config.Defaults()
+	c.DataDir = t.TempDir()
+	c.IGDB.Enabled, c.IGDB.ClientID, c.IGDB.ClientSecret = true, "id", "secret"
+	c.IGDB.IntervalMS = 0
+	service := func() *Service {
+		s := New()
+		s.TokenURL, s.GamesURL = ts.URL+"/token", ts.URL+"/games"
+		return s
+	}
+	entries := []scanner.Cached{
+		{Category: "games", Package: ps4.Package{TitleID: "CUSA12345", Title: "Synthetic Game", Category: "gd"}},
+		{Category: "games", Package: ps4.Package{TitleID: "CUSA12346", Title: "Synthetic Game", Category: "gd"}},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, _, err := service().EnrichWithProgress(ctx, c, entries, func(done, total int, current string) {
+		if done == 1 {
+			cancel()
+		}
+	})
+	if err != context.Canceled {
+		t.Fatal("expected cancellation", err)
+	}
+	cache := Cache{}
+	if err := storage.Read(filepath.Join(c.DataDir, "metadata-cache.json"), &cache); err != nil || !cache.Titles["CUSA12345"].Found || len(cache.Titles) != 1 {
+		t.Fatal("completed lookup lost after cancellation", cache, err)
+	}
+	before := queries.Load()
+	out, warnings, err := service().Enrich(context.Background(), c, entries[:1])
+	if err != nil || len(warnings) != 0 || queries.Load() != before || out["CUSA12345"]["summary"] != "Saved before cancellation" {
+		t.Fatal("restart fetched completed title again", out, warnings, err, queries.Load(), before)
 	}
 }

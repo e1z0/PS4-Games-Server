@@ -36,6 +36,8 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `internal/metadata/map.go`
 - `internal/metadata/metadata.go`
 - `internal/metadata/metadata_test.go`
+- `internal/ps4/imagecache.go`
+- `internal/ps4/imagecache_test.go`
 - `internal/ps4/pkg.go`
 - `internal/ps4/pkg_test.go`
 - `internal/scanner/scanner.go`
@@ -55,6 +57,7 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `internal/storage/lock_windows.go`
 - `internal/storage/replace_unix.go`
 - `internal/storage/replace_windows.go`
+- `internal/storage/stamp.go`
 - `internal/storage/storage.go`
 - `internal/storage/storage_test.go`
 - `internal/testpkg/fixture.go`
