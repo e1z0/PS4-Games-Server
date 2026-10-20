@@ -266,3 +266,50 @@ func TestNegativeCacheExpiryAndFirstRequestOutage(t *testing.T) {
 		t.Fatal("fresh network failure became negative cache")
 	}
 }
+
+func TestStartupRestoreDefersImageValidationAndNetwork(t *testing.T) {
+	c := config.Defaults()
+	c.DataDir = t.TempDir()
+	c.PublicURL = "http://nas:8080"
+	c.IGDB.Enabled = true
+	c.IGDB.ClientID = "must-not-contact-igdb"
+	c.IGDB.ClientSecret = "must-not-contact-igdb"
+	cache := Cache{Version: 1, Titles: map[string]Entry{"CUSA12345": {Found: true, Expires: time.Now().Add(-time.Hour), Data: Object{"summary": "Cached details", "media": Object{"screenshots": []any{Object{"image_id": "savedshot"}}}}}}}
+	if err := storage.JSON(filepath.Join(c.DataDir, "metadata-cache.json"), cache); err != nil {
+		t.Fatal(err)
+	}
+	image := filepath.Join(c.CoversDir(), "igdb", "screenshots", "CUSA12345", "savedshot.jpg")
+	if err := os.MkdirAll(filepath.Dir(image), 0700); err != nil {
+		t.Fatal(err)
+	}
+	// Existing non-image bytes prove Restore performs only a lightweight stat.
+	// They remain rejected by actual serving and by the next validating scan.
+	if err := os.WriteFile(image, []byte("needs validation during scan"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	service := New()
+	calls := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(503) }))
+	defer ts.Close()
+	service.TokenURL = ts.URL
+	service.GamesURL = ts.URL
+	service.ImageBase = ts.URL + "/"
+	entries := []scanner.Cached{{Category: "games", Package: ps4.Package{TitleID: "CUSA12345", Title: "Synthetic", Category: "gd"}}}
+	out, _, err := service.Restore(context.Background(), c, entries)
+	if err != nil || calls != 0 || out["CUSA12345"]["summary"] != "Cached details" {
+		t.Fatal("startup performed network work or lost cache", calls, err, out)
+	}
+	shot := obj(arr(obj(out["CUSA12345"]["media"])["screenshots"])[0])
+	if shot["cached"] != true || shot["url"] != "http://nas:8080/covers/igdb/screenshots/CUSA12345/savedshot.jpg" {
+		t.Fatal("cached URL not restored", shot)
+	}
+	c.IGDB.Enabled = false
+	out, _, err = service.Enrich(context.Background(), c, entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shot = obj(arr(obj(out["CUSA12345"]["media"])["screenshots"])[0])
+	if shot["cached"] != false || calls != 0 {
+		t.Fatal("normal scan skipped validation or performed offline network work", shot, calls)
+	}
+}

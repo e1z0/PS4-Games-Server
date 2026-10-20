@@ -264,6 +264,16 @@ func (s *Service) Enrich(ctx context.Context, c config.Config, entries []scanner
 	return s.EnrichWithProgress(ctx, c, entries, nil)
 }
 func (s *Service) EnrichWithProgress(ctx context.Context, c config.Config, entries []scanner.Cached, progress func(int, int, string)) (map[string]Object, []string, error) {
+	return s.enrich(ctx, c, entries, progress, true)
+}
+
+// Restore only rehydrates cached details and existing local image URLs. Full
+// image validation/repair belongs to scans, not to the HTTP listener startup.
+func (s *Service) Restore(ctx context.Context, c config.Config, entries []scanner.Cached) (map[string]Object, []string, error) {
+	c.IGDB.Enabled = false
+	return s.enrich(ctx, c, entries, nil, false)
+}
+func (s *Service) enrich(ctx context.Context, c config.Config, entries []scanner.Cached, progress func(int, int, string), validateImages bool) (map[string]Object, []string, error) {
 	cache := Cache{Version: 1, Titles: map[string]Entry{}}
 	if e := storage.Read(filepath.Join(c.DataDir, "metadata-cache.json"), &cache); e != nil && !errors.Is(e, os.ErrNotExist) {
 		return nil, nil, errors.New("invalid metadata cache")
@@ -332,7 +342,7 @@ func (s *Service) EnrichWithProgress(ctx context.Context, c config.Config, entri
 			b, _ := json.Marshal(data)
 			data = nil
 			json.Unmarshal(b, &data)
-			if err := s.screenshots(ctx, c, id, data); err != nil {
+			if err := s.screenshots(ctx, c, id, data, validateImages); err != nil {
 				warnings = append(warnings, "screenshot repair incomplete for "+id)
 			}
 			out[id] = data
@@ -349,7 +359,7 @@ func (s *Service) EnrichWithProgress(ctx context.Context, c config.Config, entri
 	}
 	return out, warnings, nil
 }
-func (s *Service) screenshots(ctx context.Context, c config.Config, id string, m Object) error {
+func (s *Service) screenshots(ctx context.Context, c config.Config, id string, m Object, validate bool) error {
 	if !config.SafeName.MatchString(id) {
 		return nil
 	}
@@ -362,7 +372,13 @@ func (s *Service) screenshots(ctx context.Context, c config.Config, id string, m
 		}
 		rel := "igdb/screenshots/" + id + "/" + imageID + ".jpg"
 		dest := filepath.Join(c.CoversDir(), filepath.FromSlash(rel))
-		valid := ps4.ValidImageFile(dest)
+		valid := false
+		if validate {
+			valid = ps4.ValidImageFile(dest)
+		} else {
+			info, err := os.Stat(dest)
+			valid = err == nil && info.Mode().IsRegular() && info.Size() > 0
+		}
 		if !valid && c.IGDB.Enabled {
 			r, e := http.NewRequestWithContext(ctx, "GET", s.ImageBase+url.PathEscape(imageID)+".jpg", nil)
 			if e != nil {

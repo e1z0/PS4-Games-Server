@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Restore cached metadata with lightweight image existence checks at startup; defer full screenshot decoding and repair to visible scans so slow NAS storage does not block the HTTP listener.
+
 - Show an indeterminate loading bar during page loads, directory browsing and interactive backend requests; keep routine polling quiet.
 - Remove the full-configuration copy button; keep individual category feed URL copying.
 - Replace oversized dark UI with a compact neutral theme, guided wizard, hidden advanced settings, clearer folder help and actionable errors.

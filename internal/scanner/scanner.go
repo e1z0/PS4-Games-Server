@@ -626,7 +626,15 @@ func (e *Engine) RestoreMetadata(ctx context.Context, c config.Config) {
 		return
 	}
 	c.IGDB.Enabled = false
-	m, _, err := e.Enricher.Enrich(ctx, c, e.Snapshot())
+	var m map[string]map[string]any
+	var err error
+	if cached, ok := e.Enricher.(interface {
+		Restore(context.Context, config.Config, []Cached) (map[string]map[string]any, []string, error)
+	}); ok {
+		m, _, err = cached.Restore(ctx, c, e.Snapshot())
+	} else {
+		m, _, err = e.Enricher.Enrich(ctx, c, e.Snapshot())
+	}
 	if err != nil {
 		e.Log("cached metadata unavailable")
 		return
