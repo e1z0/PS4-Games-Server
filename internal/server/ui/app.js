@@ -77,7 +77,7 @@ async function copy(value,source){
 }
 
 function feedList(cats){
- const d=el('div',undefined,'feeds');d.append(el('h2','Game feeds'),el('p','Copy the feed URLs you want to use in FPKGi.','muted'));
+ const d=el('div',undefined,'feeds');d.append(el('h2','Game feeds'),el('p','Copy the feed URL you want to use in PS4 Games Installer.','muted'));
  for(const cat of Object.keys(cats).sort()){
   const row=el('div',undefined,'feed'),i=el('input');i.readOnly=true;i.value=feedURLs[cat]||location.origin+'/feeds/'+encodeURIComponent(cat);i.setAttribute('aria-label',cat+' feed URL');row.append(el('span',cat),i,button('Copy',()=>copy(i.value,i)));d.append(row);
  }

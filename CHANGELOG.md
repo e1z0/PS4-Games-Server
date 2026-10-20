@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Update shared Game feeds guidance to name PS4 Games Installer.
+
 - Rewrite the README for consumers around PS4 Games Installer, with library/details/admin screenshots, a password-free NAS Compose example and matching folder layout. Move advanced operations to EXPERT.md and development/release instructions to DEVELOPER.md.
 
 - Reuse persisted screenshot validation when file fingerprints are unchanged, checkpoint completed IGDB lookups before downloading materials, exclude cache hits from update progress, and avoid repeating encrypted-section notices for unchanged packages.

@@ -80,3 +80,7 @@ Deployed becc0b2 to Docker Hub and media. Live initial indexing saved 703 valida
 Reworked README around PS4 Games Installer and browser browsing, features, native startup, a NAS Compose setup and the production folder layout. Added EXPERT.md for configuration/IGDB/mappings/maintenance and DEVELOPER.md for builds/checks/releases. Simplified the archive setup handout, updated Windows connection instructions, corrected the obsolete configuration-copy reference and retained the complete field reference. The password-free examples/compose.nas.yml follows the authorized NAS bind mounts, UID/GID example and port 3000, with a generic LAN address. Captured the live populated production library and game details, plus a separate authenticated local admin example with 111 synthetic packages and empty secret fields. Images were visually reviewed; capture sessions logged out.
 
 Documentation validation passed: reviewed three secret-free browser captures, verified Markdown links and README/example agreement, and smoke-tested fresh Compose setup, scanning, downloads, health and persistent restart with local test mounts/ports/IDs. Removed the temporary capture containers. Production configuration and packages were unchanged.
+
+## Game feed wording — 2026-10-20
+
+Changed the shared library/admin feed guidance to “Copy the feed URL you want to use in PS4 Games Installer.”
