@@ -96,3 +96,5 @@ Renamed the heading to Game feeds and moved the library feed section above searc
 ## Unified administration log — 2026-10-20
 
 Chromium with mocked authenticated API responses verified one visible Server log, warning messages displayed once, initial and new-message scrolling to the last line, unchanged polling preserving a manually scrolled position, and mobile layout without page errors. JavaScript syntax, native build, source-map coverage and whitespace checks passed.
+
+Published source eddf968 as Docker Hub 0.1.0-dev for amd64/arm64, index sha256:87a15f551aee8cc75cb7656c78d3124669e4c6dc34786f09352d9f9f245c0a06. Recreated the authorized NAS container with existing settings/mounts; binary health passed. Repeated all log browser checks using the actual deployed HTML/JavaScript/CSS and mocked authenticated API responses; passed. Server package tests and six native release archive builds passed.

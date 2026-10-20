@@ -66,3 +66,5 @@ Feed placement deployed to media and Docker Hub from 65605c3. Live browser check
 ## Unified administration log — 2026-10-20
 
 Replaced the separate warning list and collapsed recent-message log with one visible Server log directly below scan controls. Server warnings already flow through the shared timestamped log, so messages are shown once. Changed log content scrolls to its last line; unchanged polls preserve the current view and selection.
+
+Unified log deployed to Docker Hub and media from eddf968. Browser checks against deployed assets (mocked authenticated API), backend tests, release builds and NAS binary health passed.
