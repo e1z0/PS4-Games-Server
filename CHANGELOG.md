@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Keep routine encrypted payload-section notices in scan logs instead of counting them as failures/warnings; unreadable metadata/icon warnings remain visible.
+
 - Restore cached metadata with lightweight image existence checks at startup; defer full screenshot decoding and repair to visible scans so slow NAS storage does not block the HTTP listener.
 
 - Show an indeterminate loading bar during page loads, directory browsing and interactive backend requests; keep routine polling quiet.

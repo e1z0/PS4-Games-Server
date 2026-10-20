@@ -353,6 +353,12 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 				continue
 			}
 			for _, warning := range v.Package.Warnings {
+				if strings.HasSuffix(warning, " additional encrypted CNT entries") {
+					// Encrypted payload sections are routine in otherwise readable
+					// PS4 packages. Report them without flagging a broken scan.
+					e.Log(rel + ": " + warning)
+					continue
+				}
 				e.issue(rel + ": " + warning)
 			}
 			if v.Package.Title == "" {

@@ -488,3 +488,29 @@ func TestLocalCatalogIsPublishedBeforeOptionalMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestRoutineEncryptedSectionsAreInformational(t *testing.T) {
+	c, _ := fixture(t)
+	e, err := New(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.inspect = func(path string) (ps4.Package, error) {
+		p, err := ps4.Inspect(path)
+		p.EncryptedEntries = 5
+		p.Warnings = append(p.Warnings, "5 additional encrypted CNT entries", "icon0.png encrypted")
+		return p, err
+	}
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.Status().Errors) != 1 || !strings.Contains(e.Status().Errors[0], "icon0.png encrypted") {
+		t.Fatal("routine sections counted as problems or actionable warning lost", e.Status())
+	}
+	if !strings.Contains(strings.Join(e.Logs(), "\n"), "5 additional encrypted CNT entries") {
+		t.Fatal("encrypted content was not reported")
+	}
+	if len(e.Snapshot()) != 1 || e.Snapshot()[0].Package.EncryptedEntries != 5 {
+		t.Fatal("package details lost")
+	}
+}
