@@ -90,3 +90,5 @@ Published 7248b87 to Docker Hub and deployed it to media. Exact wording checked 
 ## Project footer — 2026-10-20
 
 Updated the shared page footer with server/installer GitHub links, v0.1.0, © 2026 e1z0 and linked GPLv2 license terms.
+
+Published 14b1ec4 to Docker Hub and deployed it to media. Exact footer text, server/installer/license links and desktop/mobile wrapping passed live browser checks; binary health passed. Refreshed the credential-free admin screenshot and rebuilt six native archives.

@@ -116,3 +116,7 @@ Validated examples/compose.nas.yml with Docker Compose, and verified its content
 ## PS4 Games Installer feed guidance — 2026-10-20
 
 Changed the shared library/admin text to the exact requested sentence. JavaScript syntax, native build, six release archives, source-map and whitespace checks passed. Published 7248b87 to Docker Hub 0.1.0-dev (amd64/arm64), index sha256:9c7dac5760f4f418b268c1ca470f096a50d0617aacab9748372bf5ab2ce46e26, and recreated the authorized NAS container. Health passed; startup scan completed with 111 packages and zero warnings. Chromium verified the exact text in the live Library and an authenticated local example admin, refreshed README screenshots, confirmed empty secret inputs and no page errors, and logged out. Removed the local capture container and temporary login file.
+
+## Project footer — 2026-10-20
+
+Shared footer now links both GitHub projects, displays v0.1.0 and © 2026 e1z0, and links GPLv2 terms. Browser checks verified exact text, all three link targets and no horizontal overflow at 1440px/390px, first from local assets and then on the live NAS. Native build, six release archives, source-map and whitespace checks passed. Published source 14b1ec4 as Docker Hub 0.1.0-dev (amd64/arm64), index sha256:732cac3d40b726b82e09aee6b0e931fa22e2af8b1932c0ea125cb6c46a9762b2, and recreated the authorized NAS deployment; binary health passed. Refreshed/reviewed the local authenticated example admin screenshot with empty secret fields, logged out, and removed its capture container/login file.
