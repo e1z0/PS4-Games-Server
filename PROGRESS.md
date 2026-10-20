@@ -34,3 +34,7 @@ Added WINDOWS.md with an EXE-only setup walkthrough, complete package folder/fee
 Validation: Linux make check and Docker image build passed; six archives rebuilt and Windows guide inclusion verified; Windows amd64 vet and amd64/arm64 test cross-compilation passed. Hosted native Windows service execution remains pending.
 
 Hosted verification: run [39341972657](https://github.com/e1z0/PS4-Games-Server/actions/runs/39341972657) passed all three native OS jobs. Windows passed the real Local Service install/start/health/status/stop/restart/uninstall smoke, including no-argument launch from a different working directory and paths containing spaces. Native Windows service execution is now verified on the hosted runner.
+
+## Docker Hub publication — 2026-10-20
+
+Published nulldevil/ps4-games-server:0.1.0-dev from c10a41a for Linux amd64/arm64, verified both registry manifests, and pulled/smoke-tested the published amd64 image with healthy startup as UID 10001. Latest was unchanged. Digest and cleanup evidence are recorded in docs/validation.md.

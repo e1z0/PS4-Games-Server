@@ -60,3 +60,9 @@ The reported Windows go test failures were temporary-directory cleanup failures 
 ### Hosted native verification
 
 [GitHub Actions run 39341972657](https://github.com/e1z0/PS4-Games-Server/actions/runs/39341972657) for commit 66ac814 passed the Linux, macOS and Windows native jobs, including vet, normal tests, race tests and source-map checks. The Windows service smoke step passed: an actual no-argument EXE launch from a different working directory, registration from a path containing spaces under Local Service with automatic startup, two real start/health/status/stop cycles, and uninstall retaining configuration/data. This supersedes the pending Windows execution status above. The runner was not rebooted; actual boot-time behavior and real-console installation are not claimed.
+
+## Docker Hub development publication — 2026-10-20
+
+Published source commit c10a41a using `make upload VERSION=0.1.0-dev TAG=0.1.0-dev` to [nulldevil/ps4-games-server:0.1.0-dev](https://hub.docker.com/r/nulldevil/ps4-games-server/tags?name=0.1.0-dev). Registry index digest: `sha256:014e868f6ad1f097fd4a08391ac93efd449fb541eb487dabae6421e3d92038aa`. Registry inspection confirmed linux/amd64 and linux/arm64 manifests plus build attestations. The latest tag was not published.
+
+Pulled the image from Docker Hub, checked its 0.1.0-dev version, and started the published image by digest on amd64. Binary health passed and runtime UID was 10001. The temporary container and anonymous config/data volumes were removed. The arm64 image was built and its manifest verified; ARM runtime execution remains unclaimed. Registry credentials were provided externally and were not printed or committed.
