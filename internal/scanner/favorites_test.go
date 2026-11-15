@@ -145,3 +145,23 @@ func TestFavoriteRetainsAuthoritativeStateIfDerivedCatalogFails(t *testing.T) {
 		t.Fatal("derived catalog failure not logged")
 	}
 }
+
+func TestScanPublishesReadyCatalogWithoutRepeatedCoverValidation(t *testing.T) {
+	c, _ := fixture(t)
+	e, _ := New(c)
+	if err := e.Run(context.Background(), c, false); err != nil {
+		t.Fatal(err)
+	}
+	entry := e.Snapshot()[0]
+	cover := ownCover(c, entry)
+	if err := os.Rename(cover, cover+".saved"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Rename(cover+".saved", cover)
+	// A published view must stay available without reopening covers on the next
+	// request. Serving/next scans still validate or repair missing image bytes.
+	record := e.Catalogs(c)[entry.Category].Data[PackageURL(c, entry)]
+	if record.CoverURL == nil || strings.HasSuffix(*record.CoverURL, "fallback.png") {
+		t.Fatal("scan did not cache its validated catalog")
+	}
+}

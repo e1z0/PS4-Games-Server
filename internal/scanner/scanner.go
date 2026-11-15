@@ -453,9 +453,13 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 }
 
 func (e *Engine) publish(c config.Config, next, old []Cached, meta map[string]map[string]any) error {
+	// Validate covers before taking the publication lock. Existing catalog readers
+	// and favorite writes must remain available during slow NAS image work.
+	cats := Catalogs(c, next, meta)
 	e.catalogMu.Lock()
 	defer e.catalogMu.Unlock()
-	if err := writeCatalogs(c, next, old, meta, e.favorites); err != nil {
+	applyFavorites(c, cats, next, e.favorites)
+	if err := writeCatalogs(c, cats, old); err != nil {
 		e.issue("Cannot save the catalog; check data-directory permissions and free space")
 		return err
 	}
@@ -479,6 +483,9 @@ func (e *Engine) publish(c config.Config, next, old []Cached, meta map[string]ma
 	e.metadata = meta
 	e.revision++
 	e.job.Removed = removed
+	e.published = cats
+	e.catalogKey = catalogConfigKey(c)
+	e.catalogRevision = e.revision
 	e.mu.Unlock()
 	return nil
 }
@@ -590,14 +597,15 @@ func (e *Engine) Catalogs(c config.Config) map[string]Catalog {
 	defer e.catalogMu.Unlock()
 	return e.catalogsLocked(c)
 }
-func (e *Engine) catalogsLocked(c config.Config) map[string]Catalog {
-	// Cover validation belongs to publishing a snapshot, not every browser/feed
-	// request. Keep expensive filesystem/image work outside the job status lock.
+func catalogConfigKey(c config.Config) string {
 	encoded, _ := json.Marshal(struct {
 		Public, Downloads, Covers string
 		Mappings                  []config.Mapping
 	}{c.PublicURL, c.Downloads(), c.CoversDir(), c.Mappings})
-	cacheKey := string(encoded)
+	return string(encoded)
+}
+func (e *Engine) catalogsLocked(c config.Config) map[string]Catalog {
+	cacheKey := catalogConfigKey(c)
 	e.mu.RLock()
 	revision := e.revision
 	if e.published != nil && e.catalogKey == cacheKey && e.catalogRevision == revision {
@@ -614,15 +622,18 @@ func (e *Engine) catalogsLocked(c config.Config) map[string]Catalog {
 	e.catalogRevision = revision
 	return cats
 }
-func writeCatalogs(c config.Config, next, old []Cached, meta map[string]map[string]any, favorites map[string]bool) error {
-	cats := Catalogs(c, next, meta)
-	applyFavorites(c, cats, next, favorites)
+func writeCatalogs(c config.Config, cats map[string]Catalog, old []Cached) error {
+	// Retired category files must be cleared, without adding them to the live view.
+	disk := make(map[string]Catalog, len(cats))
+	for category, cat := range cats {
+		disk[category] = cat
+	}
 	for _, v := range old {
-		if _, ok := cats[v.Category]; !ok {
-			cats[v.Category] = Catalog{map[string]Record{}}
+		if _, ok := disk[v.Category]; !ok {
+			disk[v.Category] = Catalog{map[string]Record{}}
 		}
 	}
-	for cat, data := range cats {
+	for cat, data := range disk {
 		if !config.SafeName.MatchString(cat) {
 			return errors.New("unsafe catalog name")
 		}
