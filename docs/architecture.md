@@ -27,6 +27,7 @@
 | GET `/admin` | Administrator session; otherwise redirects to login |
 | GET `/app.js`, `/style.css`, `/fallback.svg` | Explicit embedded assets only |
 | GET/HEAD `/health` | Public liveness; binary `health` command is container probe |
+| PUT `/api/v1/favorites` | Administrator + CSRF; set a published package favorite using package_url and boolean is_favorite |
 | GET `/api/v1/library`, `/api/v1/feeds` | Public catalogs / configured feed URLs |
 | GET `/api/v1/library/status` | Public progress counts/stage, without filesystem paths, private errors or secrets |
 | GET/HEAD `/<category>`, `/<category>.json`, `/feeds/<category>` | Public FPKGi feeds and legacy aliases |
@@ -74,3 +75,5 @@ Windows lifecycle: cmd/ps4-server/service_windows.go uses golang.org/x/sys/windo
 Startup uses metadata.Service.Restore for cache-only metadata hydration with image existence checks. It does not decode every cached screenshot or contact IGDB before opening HTTP. Full image validation/repair occurs in the visible scan and images are validated when served.
 
 Game details render existing igdb.videos after screenshots. Only validated 11-character YouTube IDs reach fixed youtube-nocookie.com embed URLs; recognized YouTube URL forms can supply an ID when absent. Duplicates/invalid entries are skipped and titles use textContent. CSP permits only that external frame host. Frames load lazily without autoplay, use origin-only referrers for YouTube identification, provide direct watch links, and are removed on dialog close/Escape to stop playback.
+
+Favorites: scanner/favorites.go persists preferences independently in favorites.json, keyed by mapping/root/relative path. Catalog records emit is_favorite after size. Updates serialize with scan publication under catalogMu and copy the affected immutable catalog before updating feeds/disk, avoiding expensive cover validation when a published view exists. favorites_test.go in scanner/server covers persistence, concurrent scanning, auth/CSRF, invalid requests and public feeds. Library cards wrap their details button and admin-only accessible star button as siblings; guest session checks fail closed without blocking public browsing.

@@ -18,3 +18,5 @@ Screenshot validation now persists across scans/restarts; pre-existing caches ne
 Consumer docs now include reviewed screenshots and a password-free production-style NAS example; EXPERT.md and DEVELOPER.md separate advanced operations from development. Screenshots should be refreshed when visible UI changes make them stale.
 
 Embedded game videos are delivered and verified: existing catalog data, responsive YouTube players after screenshots, lazy loading, dialog-close cleanup and real playback on the NAS. Videos remain streamed from YouTube; no separate video download cache is introduced.
+
+Shared favorites are implemented: admin-only star controls, immediate public is_favorite fields and restart/rescan-safe preferences in favorites.json. Include this file in data backups.

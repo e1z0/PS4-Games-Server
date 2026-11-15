@@ -38,6 +38,7 @@ Directories beneath data_dir:
 - `catalogs/<category>.json`: deterministic FPKGi `{"DATA":{...}}` feeds; only rewritten when content changes.
 - `covers/<category>/...`: extracted/custom PNG/JPEG covers.
 - `covers/igdb/screenshots/<TitleID>/...`: local screenshots, repaired when invalid.
+- `favorites.json`: shared package favorites; persisted separately from scan results.
 - `scan-cache.json`: versioned metadata and icon offsets, without package data.
 - `metadata-cache.json`: positive/negative IGDB results, expiration and persisted screenshot validation fingerprints.
 - `metadata-overrides.json`: objects keyed by Title ID, merged recursively into rich metadata.

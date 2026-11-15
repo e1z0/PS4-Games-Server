@@ -32,6 +32,7 @@ type Record struct {
 	Version         string         `json:"version"`
 	Release         string         `json:"release"`
 	Size            string         `json:"size"`
+	Favorite        bool           `json:"is_favorite"`
 	Firmware        *string        `json:"min_fw"`
 	CoverURL        *string        `json:"cover_url"`
 	IGDB            map[string]any `json:"igdb,omitempty"`
@@ -81,6 +82,7 @@ type ProgressEnricher interface {
 type Engine struct {
 	mu              sync.RWMutex
 	catalogMu       sync.Mutex
+	favorites       map[string]bool
 	catalogKey      string
 	catalogRevision uint64
 	published       map[string]Catalog
@@ -122,7 +124,14 @@ func New(c config.Config) (*Engine, error) {
 		}
 	}
 	s.Entries = entries
-	return &Engine{state: s, retired: retired, metadata: map[string]map[string]any{}, inspect: ps4.Inspect}, nil
+	favorites := map[string]bool{}
+	if err := storage.Read(filepath.Join(c.DataDir, "favorites.json"), &favorites); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("read favorites: %w", err)
+	}
+	if favorites == nil {
+		favorites = map[string]bool{}
+	}
+	return &Engine{state: s, retired: retired, favorites: favorites, metadata: map[string]map[string]any{}, inspect: ps4.Inspect}, nil
 }
 func (e *Engine) Log(s string) {
 	e.mu.Lock()
@@ -444,7 +453,9 @@ func (e *Engine) run(ctx context.Context, c config.Config, force bool) (result e
 }
 
 func (e *Engine) publish(c config.Config, next, old []Cached, meta map[string]map[string]any) error {
-	if err := writeCatalogs(c, next, old, meta); err != nil {
+	e.catalogMu.Lock()
+	defer e.catalogMu.Unlock()
+	if err := writeCatalogs(c, next, old, meta, e.favorites); err != nil {
 		e.issue("Cannot save the catalog; check data-directory permissions and free space")
 		return err
 	}
@@ -555,7 +566,7 @@ func RecordFor(c config.Config, v Cached, meta map[string]map[string]any) Record
 		rel, _ := filepath.Rel(c.CoversDir(), p)
 		cover = c.Downloads() + "/covers/" + Escape(rel)
 	}
-	return Record{ps4.Region(v.Package.ContentID), ptr(v.Package.TitleID), ptr(v.Package.ContentID), ps4.Classify(v.Package.Category, v.Category), ptr(v.Package.Category), v.Package.Title, v.Package.Version, v.Release, strconv.FormatInt(v.Size, 10), v.Package.Firmware, &cover, meta[v.Package.TitleID]}
+	return Record{ps4.Region(v.Package.ContentID), ptr(v.Package.TitleID), ptr(v.Package.ContentID), ps4.Classify(v.Package.Category, v.Category), ptr(v.Package.Category), v.Package.Title, v.Package.Version, v.Release, strconv.FormatInt(v.Size, 10), false, v.Package.Firmware, &cover, meta[v.Package.TitleID]}
 }
 func Catalogs(c config.Config, entries []Cached, meta map[string]map[string]any) map[string]Catalog {
 	out := map[string]Catalog{}
@@ -575,6 +586,11 @@ func Catalogs(c config.Config, entries []Cached, meta map[string]map[string]any)
 	return out
 }
 func (e *Engine) Catalogs(c config.Config) map[string]Catalog {
+	e.catalogMu.Lock()
+	defer e.catalogMu.Unlock()
+	return e.catalogsLocked(c)
+}
+func (e *Engine) catalogsLocked(c config.Config) map[string]Catalog {
 	// Cover validation belongs to publishing a snapshot, not every browser/feed
 	// request. Keep expensive filesystem/image work outside the job status lock.
 	encoded, _ := json.Marshal(struct {
@@ -582,8 +598,6 @@ func (e *Engine) Catalogs(c config.Config) map[string]Catalog {
 		Mappings                  []config.Mapping
 	}{c.PublicURL, c.Downloads(), c.CoversDir(), c.Mappings})
 	cacheKey := string(encoded)
-	e.catalogMu.Lock()
-	defer e.catalogMu.Unlock()
 	e.mu.RLock()
 	revision := e.revision
 	if e.published != nil && e.catalogKey == cacheKey && e.catalogRevision == revision {
@@ -594,13 +608,15 @@ func (e *Engine) Catalogs(c config.Config) map[string]Catalog {
 	meta := e.metadata
 	e.mu.RUnlock()
 	cats := Catalogs(c, entries, meta)
+	applyFavorites(c, cats, entries, e.favorites)
 	e.published = cats
 	e.catalogKey = cacheKey
 	e.catalogRevision = revision
 	return cats
 }
-func writeCatalogs(c config.Config, next, old []Cached, meta map[string]map[string]any) error {
+func writeCatalogs(c config.Config, next, old []Cached, meta map[string]map[string]any, favorites map[string]bool) error {
 	cats := Catalogs(c, next, meta)
+	applyFavorites(c, cats, next, favorites)
 	for _, v := range old {
 		if _, ok := cats[v.Category]; !ok {
 			cats[v.Category] = Catalog{map[string]Record{}}

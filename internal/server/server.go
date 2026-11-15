@@ -364,6 +364,30 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch route {
+	case "favorites":
+		if r.Method == "PUT" {
+			var b struct {
+				PackageURL string `json:"package_url"`
+				Favorite   *bool  `json:"is_favorite"`
+			}
+			if !decode(w, r, &b) {
+				return
+			}
+			if b.PackageURL == "" || b.Favorite == nil {
+				fail(w, 400, "package_url and is_favorite are required")
+				return
+			}
+			if err := a.Engine().SetFavorite(a.Config(), b.PackageURL, *b.Favorite); err != nil {
+				if err == scanner.ErrPackageNotFound {
+					fail(w, 404, err.Error())
+				} else {
+					fail(w, 500, "Could not save favorite. Check server storage permissions and free space.")
+				}
+				return
+			}
+			jsonOut(w, 200, map[string]bool{"is_favorite": *b.Favorite})
+			return
+		}
 	case "auth/logout":
 		if r.Method == "POST" {
 			a.mu.Lock()

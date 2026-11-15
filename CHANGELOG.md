@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Add persistent shared favorites with administrator-only star toggles on library cards, authenticated/CSRF-protected updates and immediate is_favorite booleans between size and min_fw in Game feeds.
+
 - Show responsive embedded YouTube videos after game screenshots, with validated/deduplicated IDs, direct watch links, lazy loading and playback cleanup when details close.
 
 - Add linked server/installer project credits, v0.1.0, copyright and GPLv2 terms to the shared footer.

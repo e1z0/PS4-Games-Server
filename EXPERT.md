@@ -101,6 +101,12 @@ Administration's **Advanced: metadata overrides** accepts JSON keyed by Title ID
 
 Save and scan to apply it. Overrides are stored in `data/metadata-overrides.json` and merged into cached details.
 
+## Favorites
+
+Sign in as administrator, then open Library. Each package has a star toggle (☆ / ★); guests can browse but cannot see or change these controls. Choices are shared server-wide, not personal to a browser. A saved choice is immediately included in public feed records as `is_favorite: true` or `false`, between `size` and `min_fw`.
+
+Preferences live in `data/favorites.json`, keyed by stable mapping ID, root and relative package path. They survive normal/forced scans, restarts and public URL edits. Moving a package or changing the mapping ID/root gives it a new identity. Back up this file with the rest of application data. The API requires a normal administrator session and CSRF token; setup sessions cannot edit favorites.
+
 ## Feeds and separate download listeners
 
 Use `/feeds/<category>` URLs from **Game feeds**. Legacy `/<category>` and `/<category>.json` aliases remain supported where they do not collide with application routes. Catalogs keep FPKGi's `{"DATA": {...}}` format, escaped nested paths and original field types. For FPKGi, add selected URLs to its `content_urls` object; see the [Windows example](WINDOWS.md#fpkgi-compatible-clients).
