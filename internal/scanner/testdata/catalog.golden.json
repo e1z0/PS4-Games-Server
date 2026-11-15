@@ -11,6 +11,7 @@
       "release": "10-19-2026",
       "size": "5368709120",
       "is_favorite": false,
+      "is_excluded": false,
       "min_fw": "11.02",
       "cover_url": "http://nas:8080/covers/fallback.png"
     }

@@ -78,7 +78,7 @@ docker compose -f ps4-games-server.yml up -d
 docker compose -f ps4-games-server.yml exec ps4-server ps4-server health -config /config/config.json
 ```
 
-Use `sudo docker-compose` on Synology installations with the older command. The example's `0.1.0-dev` tag is a development build; prefer a versioned stable tag when a stable release is published. Ordinary development uploads do not update `latest`.
+Use `sudo docker-compose` on Synology installations with the older command. The example pins version `0.2.0`; choose a newer version explicitly when updating. Ordinary development uploads do not update `latest`.
 
 Stopping or recreating the container keeps bind-mounted data. For named volumes, `docker compose down` retains them; `down -v` deletes them.
 
@@ -106,6 +106,14 @@ Save and scan to apply it. Overrides are stored in `data/metadata-overrides.json
 Sign in as administrator, then open Library. Each package has a star toggle (☆ / ★); guests can browse but cannot see or change these controls. Choices are shared server-wide, not personal to a browser. A saved choice is immediately included in public feed records as `is_favorite: true` or `false`, between `size` and `min_fw`.
 
 Preferences live in `data/favorites.json`, keyed by stable mapping ID, root and relative package path. They survive normal/forced scans, restarts and public URL edits. Moving a package or changing the mapping ID/root gives it a new identity. Back up this file with the rest of application data. The API requires a normal administrator session and CSRF token; setup sessions cannot edit favorites.
+
+## Client-side exclusions
+
+Signed-in administrators can use the ⊘ button beside a package's favorite star to exclude it from clients. The selected button turns red. Toggle it again to include the package. Guests do not see either control.
+
+Records always contain boolean `is_favorite` and `is_excluded` fields, after `size` and before `min_fw`. **The web library, Game feeds and downloads retain every package**, including excluded ones. Clients can read `is_excluded: true` to hide that title; this requires client support.
+
+Exclusions are independent of favorites and persist in `data/exclusions.json`, with the same mapping/root/relative-path identity and restart/rescan behavior. Include this file in data backups. `PUT /api/v1/exclusions` requires an administrator session and CSRF token, with `package_url` and explicit boolean `is_excluded`.
 
 ## Feeds and separate download listeners
 

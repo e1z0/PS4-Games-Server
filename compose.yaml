@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-only
 services:
   ps4-server:
-    image: ${IMAGE:-nulldevil/ps4-games-server}:${TAG:-0.1.0-dev}
+    image: ${IMAGE:-nulldevil/ps4-games-server}:${TAG:-0.2.0}
     build:
       context: .
       args:
-        VERSION: ${VERSION:-0.1.0-dev}
+        VERSION: ${VERSION:-0.2.0}
     user: "${PUID:-10001}:${PGID:-10001}"
     ports:
       - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-8080}:8080"

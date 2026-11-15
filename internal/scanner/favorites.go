@@ -11,17 +11,18 @@ import (
 
 var ErrPackageNotFound = errors.New("package is no longer in the library")
 
-func favoriteKey(v Cached) string {
+func preferenceKey(v Cached) string {
 	b, _ := json.Marshal([]string{v.Mapping, v.Root, v.Relative})
 	return string(b)
 }
 
-func applyFavorites(c config.Config, cats map[string]Catalog, entries []Cached, favorites map[string]bool) {
+func applyPreferences(c config.Config, cats map[string]Catalog, entries []Cached, favorites, exclusions map[string]bool) {
 	for _, v := range entries {
 		cat := cats[v.Category]
 		url := PackageURL(c, v)
 		record := cat.Data[url]
-		record.Favorite = favorites[favoriteKey(v)]
+		record.Favorite = favorites[preferenceKey(v)]
+		record.Excluded = exclusions[preferenceKey(v)]
 		cat.Data[url] = record
 	}
 }
@@ -29,6 +30,23 @@ func applyFavorites(c config.Config, cats map[string]Catalog, entries []Cached, 
 // SetFavorite serializes with scan publication so a running scan cannot
 // overwrite a preference. Keys survive public URL changes and file updates.
 func (e *Engine) SetFavorite(c config.Config, packageURL string, favorite bool) error {
+	return e.setPreference(c, packageURL, favorite, favoritePreference)
+}
+
+// SetExcluded marks packages for client-side hiding; the web library and feeds
+// retain the package, so clients can choose how to apply the preference.
+func (e *Engine) SetExcluded(c config.Config, packageURL string, excluded bool) error {
+	return e.setPreference(c, packageURL, excluded, exclusionPreference)
+}
+
+type preferenceKind int
+
+const (
+	favoritePreference preferenceKind = iota
+	exclusionPreference
+)
+
+func (e *Engine) setPreference(c config.Config, packageURL string, value bool, kind preferenceKind) error {
 	e.catalogMu.Lock()
 	defer e.catalogMu.Unlock()
 	entries := e.Snapshot()
@@ -60,22 +78,32 @@ func (e *Engine) SetFavorite(c config.Config, packageURL string, favorite bool) 
 		cat.Data[url] = record
 	}
 	record := cat.Data[packageURL]
-	record.Favorite = favorite
+	current, filename, label := e.favorites, "favorites.json", "Favorite"
+	if kind == exclusionPreference {
+		current, filename, label = e.exclusions, "exclusions.json", "Exclusion"
+		record.Excluded = value
+	} else {
+		record.Favorite = value
+	}
 	cat.Data[packageURL] = record
 	updated[selected.Category] = cat
-	next := make(map[string]bool, len(e.favorites)+1)
-	for k, v := range e.favorites {
+	next := make(map[string]bool, len(current)+1)
+	for k, v := range current {
 		next[k] = v
 	}
-	if favorite {
-		next[favoriteKey(*selected)] = true
+	if value {
+		next[preferenceKey(*selected)] = true
 	} else {
-		delete(next, favoriteKey(*selected))
+		delete(next, preferenceKey(*selected))
 	}
-	if err := storage.JSON(filepath.Join(c.DataDir, "favorites.json"), next); err != nil {
+	if err := storage.JSON(filepath.Join(c.DataDir, filename), next); err != nil {
 		return err
 	}
-	e.favorites = next
+	if kind == exclusionPreference {
+		e.exclusions = next
+	} else {
+		e.favorites = next
+	}
 	e.mu.Lock()
 	e.revision++
 	e.catalogRevision = e.revision
@@ -84,7 +112,7 @@ func (e *Engine) SetFavorite(c config.Config, packageURL string, favorite bool) 
 	if err := storage.JSON(filepath.Join(c.DataDir, "catalogs", selected.Category+".json"), cat); err != nil {
 		// Preferences are authoritative and already committed; the live feed has
 		// the saved value. A normal scan repairs this derived catalog file.
-		e.Log("Favorite saved, but the generated catalog file could not be updated. Check storage permissions; the next scan will retry.")
+		e.Log(label + " saved, but the generated catalog file could not be updated. Check storage permissions; the next scan will retry.")
 	}
 	return nil
 }

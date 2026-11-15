@@ -33,6 +33,7 @@ type Record struct {
 	Release         string         `json:"release"`
 	Size            string         `json:"size"`
 	Favorite        bool           `json:"is_favorite"`
+	Excluded        bool           `json:"is_excluded"`
 	Firmware        *string        `json:"min_fw"`
 	CoverURL        *string        `json:"cover_url"`
 	IGDB            map[string]any `json:"igdb,omitempty"`
@@ -83,6 +84,7 @@ type Engine struct {
 	mu              sync.RWMutex
 	catalogMu       sync.Mutex
 	favorites       map[string]bool
+	exclusions      map[string]bool
 	catalogKey      string
 	catalogRevision uint64
 	published       map[string]Catalog
@@ -131,7 +133,14 @@ func New(c config.Config) (*Engine, error) {
 	if favorites == nil {
 		favorites = map[string]bool{}
 	}
-	return &Engine{state: s, retired: retired, favorites: favorites, metadata: map[string]map[string]any{}, inspect: ps4.Inspect}, nil
+	exclusions := map[string]bool{}
+	if err := storage.Read(filepath.Join(c.DataDir, "exclusions.json"), &exclusions); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("read exclusions: %w", err)
+	}
+	if exclusions == nil {
+		exclusions = map[string]bool{}
+	}
+	return &Engine{state: s, retired: retired, favorites: favorites, exclusions: exclusions, metadata: map[string]map[string]any{}, inspect: ps4.Inspect}, nil
 }
 func (e *Engine) Log(s string) {
 	e.mu.Lock()
@@ -458,7 +467,7 @@ func (e *Engine) publish(c config.Config, next, old []Cached, meta map[string]ma
 	cats := Catalogs(c, next, meta)
 	e.catalogMu.Lock()
 	defer e.catalogMu.Unlock()
-	applyFavorites(c, cats, next, e.favorites)
+	applyPreferences(c, cats, next, e.favorites, e.exclusions)
 	if err := writeCatalogs(c, cats, old); err != nil {
 		e.issue("Cannot save the catalog; check data-directory permissions and free space")
 		return err
@@ -573,7 +582,7 @@ func RecordFor(c config.Config, v Cached, meta map[string]map[string]any) Record
 		rel, _ := filepath.Rel(c.CoversDir(), p)
 		cover = c.Downloads() + "/covers/" + Escape(rel)
 	}
-	return Record{ps4.Region(v.Package.ContentID), ptr(v.Package.TitleID), ptr(v.Package.ContentID), ps4.Classify(v.Package.Category, v.Category), ptr(v.Package.Category), v.Package.Title, v.Package.Version, v.Release, strconv.FormatInt(v.Size, 10), false, v.Package.Firmware, &cover, meta[v.Package.TitleID]}
+	return Record{ps4.Region(v.Package.ContentID), ptr(v.Package.TitleID), ptr(v.Package.ContentID), ps4.Classify(v.Package.Category, v.Category), ptr(v.Package.Category), v.Package.Title, v.Package.Version, v.Release, strconv.FormatInt(v.Size, 10), false, false, v.Package.Firmware, &cover, meta[v.Package.TitleID]}
 }
 func Catalogs(c config.Config, entries []Cached, meta map[string]map[string]any) map[string]Catalog {
 	out := map[string]Catalog{}
@@ -616,7 +625,7 @@ func (e *Engine) catalogsLocked(c config.Config) map[string]Catalog {
 	meta := e.metadata
 	e.mu.RUnlock()
 	cats := Catalogs(c, entries, meta)
-	applyFavorites(c, cats, entries, e.favorites)
+	applyPreferences(c, cats, entries, e.favorites, e.exclusions)
 	e.published = cats
 	e.catalogKey = cacheKey
 	e.catalogRevision = revision

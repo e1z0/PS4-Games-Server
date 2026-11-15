@@ -2,7 +2,7 @@
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 ARG TARGETOS=linux
 ARG TARGETARCH
-ARG VERSION=0.1.0-dev
+ARG VERSION=0.2.0
 WORKDIR /src
 COPY go.mod go.sum ./
 COPY cmd ./cmd

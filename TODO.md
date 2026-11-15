@@ -20,3 +20,5 @@ Consumer docs now include reviewed screenshots and a password-free production-st
 Embedded game videos are delivered and verified: existing catalog data, responsive YouTube players after screenshots, lazy loading, dialog-close cleanup and real playback on the NAS. Videos remain streamed from YouTube; no separate video download cache is introduced.
 
 Shared favorites are implemented: admin-only star controls, immediate public is_favorite fields and restart/rescan-safe preferences in favorites.json. Include this file in data backups.
+
+Version 0.2.0 adds independent client-side exclusions. Back up exclusions.json along with favorites.json; exclusion flags do not hide web/feed records and must be interpreted by clients.

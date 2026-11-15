@@ -388,6 +388,30 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 			jsonOut(w, 200, map[string]bool{"is_favorite": *b.Favorite})
 			return
 		}
+	case "exclusions":
+		if r.Method == "PUT" {
+			var b struct {
+				PackageURL string `json:"package_url"`
+				Excluded   *bool  `json:"is_excluded"`
+			}
+			if !decode(w, r, &b) {
+				return
+			}
+			if b.PackageURL == "" || b.Excluded == nil {
+				fail(w, 400, "package_url and is_excluded are required")
+				return
+			}
+			if err := a.Engine().SetExcluded(a.Config(), b.PackageURL, *b.Excluded); err != nil {
+				if err == scanner.ErrPackageNotFound {
+					fail(w, 404, err.Error())
+				} else {
+					fail(w, 500, "Could not save exclusion. Check server storage permissions and free space.")
+				}
+				return
+			}
+			jsonOut(w, 200, map[string]bool{"is_excluded": *b.Excluded})
+			return
+		}
 	case "auth/logout":
 		if r.Method == "POST" {
 			a.mu.Lock()

@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.2.0
+
+- Add administrator-only exclusion toggles and persistent is_excluded booleans. Excluded packages remain in web browsing and feeds for clients to filter.
+- Include shared favorites with star controls and persistent is_favorite booleans.
+- Keep web library requests responsive while scan publication validates covers.
+- Bump executable, footer, build/release defaults and Docker examples to 0.2.0.
+
+## 0.1.0
 
 - Add persistent shared favorites with administrator-only star toggles on library cards, authenticated/CSRF-protected updates and immediate is_favorite booleans between size and min_fw in Game feeds.
 

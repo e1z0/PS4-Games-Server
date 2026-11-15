@@ -27,6 +27,7 @@
 | GET `/admin` | Administrator session; otherwise redirects to login |
 | GET `/app.js`, `/style.css`, `/fallback.svg` | Explicit embedded assets only |
 | GET/HEAD `/health` | Public liveness; binary `health` command is container probe |
+| PUT `/api/v1/exclusions` | Administrator + CSRF; set client-side exclusion using package_url and boolean is_excluded, without hiding/removing packages on the server |
 | PUT `/api/v1/favorites` | Administrator + CSRF; set a published package favorite using package_url and boolean is_favorite |
 | GET `/api/v1/library`, `/api/v1/feeds` | Public catalogs / configured feed URLs |
 | GET `/api/v1/library/status` | Public progress counts/stage, without filesystem paths, private errors or secrets |
@@ -77,3 +78,5 @@ Startup uses metadata.Service.Restore for cache-only metadata hydration with ima
 Game details render existing igdb.videos after screenshots. Only validated 11-character YouTube IDs reach fixed youtube-nocookie.com embed URLs; recognized YouTube URL forms can supply an ID when absent. Duplicates/invalid entries are skipped and titles use textContent. CSP permits only that external frame host. Frames load lazily without autoplay, use origin-only referrers for YouTube identification, provide direct watch links, and are removed on dialog close/Escape to stop playback.
 
 Favorites: scanner/favorites.go persists preferences independently in favorites.json, keyed by mapping/root/relative path. Catalog records emit is_favorite after size. Cover validation runs outside catalogMu; publication keeps its prepared catalog cached. Favorite updates serialize with final scan publication under catalogMu and copy the affected immutable catalog before updating feeds/disk, avoiding expensive cover validation when a published view exists. favorites_test.go in scanner/server covers persistence, concurrent scanning, auth/CSRF, invalid requests and public feeds. Library cards wrap their details button and admin-only accessible star button as siblings; guest session checks fail closed without blocking public browsing.
+
+Exclusions use the same serialized preference update path as favorites, with an independent exclusions.json file and is_excluded boolean immediately after is_favorite. Rendering and catalog assembly never filter on this flag; clients decide whether to hide records. Version defaults, build tags and embedded footer use 0.2.0.

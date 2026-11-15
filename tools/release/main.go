@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	v := flag.String("version", "0.1.0-dev", "release version")
+	v := flag.String("version", "0.2.0", "release version")
 	flag.Parse()
 	if !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`).MatchString(*v) {
 		panic("invalid version")

@@ -46,11 +46,13 @@ See [architecture](docs/architecture.md) for entrypoints, routes, tests and data
 - `internal/ps4/imagecache_test.go`
 - `internal/ps4/pkg.go`
 - `internal/ps4/pkg_test.go`
+- `internal/scanner/exclusions_test.go`
 - `internal/scanner/favorites.go`
 - `internal/scanner/favorites_test.go`
 - `internal/scanner/scanner.go`
 - `internal/scanner/scanner_test.go`
 - `internal/scanner/testdata/catalog.golden.json`
+- `internal/server/exclusions_test.go`
 - `internal/server/favorites_test.go`
 - `internal/server/server.go`
 - `internal/server/server_test.go`

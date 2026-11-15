@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 services:
   ps4-server:
-    image: nulldevil/ps4-games-server:0.1.0-dev
+    image: nulldevil/ps4-games-server:0.2.0
     container_name: ps4-games-server
     user: "1026:100"
     ports:

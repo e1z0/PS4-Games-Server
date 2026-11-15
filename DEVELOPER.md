@@ -55,7 +55,7 @@ Docker is needed only for container targets. The root [compose.yaml](compose.yam
 ## Releases and Docker Hub
 
 ```sh
-make release VERSION=0.1.0
+make release VERSION=0.2.0
 ```
 
 Archives appear in `dist/` for Linux, macOS and Windows on amd64/arm64. Each contains one executable, example JSON, license, setup instructions and notices; Windows archives also contain WINDOWS.md. macOS executables are unsigned.
@@ -64,7 +64,7 @@ Authenticate with Docker Hub outside the build, then publish a chosen version:
 
 ```sh
 docker login
-make upload VERSION=0.1.0 TAG=0.1.0
+make upload VERSION=0.2.0 TAG=0.2.0
 ```
 
 The default repository is `nulldevil/ps4-games-server`; override `IMAGE` if needed. Upload creates/reuses the named Docker-container Buildx builder `ps4-games-server-release` (`BUILDER` overrides it). Both Linux image architectures cross-compile on the host CPU without QEMU. Credentials come from Docker's external login/configuration, not the source tree.
@@ -72,7 +72,7 @@ The default repository is `nulldevil/ps4-games-server`; override `IMAGE` if need
 Ordinary uploads never move `latest`. Only an explicit stable release should use:
 
 ```sh
-make upload VERSION=0.1.0 TAG=0.1.0 STABLE=1
+make upload VERSION=0.2.0 TAG=0.2.0 STABLE=1
 ```
 
 CI also exports a multi-architecture OCI archive. The runtime image is non-root and has a binary-based health check. Persistent configuration/data remain outside the image.
