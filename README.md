@@ -99,6 +99,8 @@ Your files will look like this:
             ├── covers/igdb/screenshots/ # Downloaded screenshots, grouped by Title ID
             ├── scan-cache.json        # Saved package details
             ├── metadata-cache.json    # IGDB details and image validation cache
+            ├── favorites.json         # Shared favorite choices (after first save)
+            ├── exclusions.json        # Client exclusion choices (after first save)
             └── metadata-overrides.json # Optional manual game information
 ```
 
